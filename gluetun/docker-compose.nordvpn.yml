@@ -1,0 +1,63 @@
+# Gluetun (VPN) + qBittorrent. qBittorrent has no network of its own: it uses Gluetun's,
+# so if the tunnel is down it has no route to the internet (kill switch).
+# WIREGUARD_PRIVATE_KEY comes from the .env file next to this file (never committed).
+services:
+  gluetun:
+    image: qmcgaw/gluetun:v3
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN            # lets Gluetun manage the WireGuard interface and firewall
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      # qBittorrent's ports are published here because it shares Gluetun's network.
+      - "8080:8080"                # qBittorrent Web UI (LAN)
+      # Control server, reachable from the NAS itself only (not the LAN).
+      - "127.0.0.1:8000:8000"
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_PRIVATE_KEY}
+      - SERVER_COUNTRIES=Netherlands
+      - SERVER_CATEGORIES=P2P
+      # Allow LAN traffic in and out of the tunnel container (Web UI). Not the internet.
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.178.0/24
+      - TZ=Europe/Amsterdam
+    volumes:
+      - /volume1/docker/gluetun:/gluetun
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    network_mode: "service:gluetun"   # no network of its own: only Gluetun's tunnel
+    depends_on:
+      gluetun:
+        condition: service_healthy    # start only once the VPN is up
+        restart: true                 # re-attach if Gluetun is recreated or restarted
+    environment:
+      - PUID=1031                     # downloader
+      - PGID=100                      # users
+      - UMASK=002                     # new files 664 / dirs 775, so `users` (master, SMB) can edit them
+      - TZ=Europe/Amsterdam
+      - WEBUI_PORT=8080
+    volumes:
+      - /volume1/docker/qbittorrent/config:/config
+      - /volume1/download/qbittorrent:/downloads
+
+  # Indexer manager. Deliberately NOT behind the VPN: many indexers block VPN addresses.
+  # It only talks to indexer websites and to qBittorrent's Web UI at gluetun:8080.
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      - PUID=1031                     # downloader
+      - PGID=100                      # users
+      - UMASK=002
+      - TZ=Europe/Amsterdam
+    volumes:
+      - /volume1/docker/prowlarr/config:/config
+    ports:
+      - "9696:9696"                   # Prowlarr Web UI

@@ -1,0 +1,7 @@
+# Secrets: WireGuard keys and compose environment files
+.env
+*.env
+*.conf
+wireguard*
+privatekey*
+.DS_Store

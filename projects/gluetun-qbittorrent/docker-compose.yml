@@ -81,4 +81,4 @@ services:
       - /volume1/download/qbittorrent:/downloads
       - /volume1/video/TV Shows:/tv
     ports:
-      - "127.0.0.1:8989:8989"          # Sonarr UI is reachable on the NAS only; use an SSH tunnel
+      - "100.126.55.95:8989:8989"      # Sonarr UI on the NAS Tailscale IP only

@@ -1,0 +1,22 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: 1026:100
+    group_add:
+      - "937"   # videodriver: access to /dev/dri/renderD128 for QuickSync
+    ports:
+      - "8096:8096"
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      - TZ=Europe/Amsterdam
+    volumes:
+      - /volume1/docker/jellyfin/config:/config
+      - /volume1/docker/jellyfin/cache:/cache
+      # Media is mounted read-only so Jellyfin cannot alter the Plex library.
+      - "/volume1/video/Movies:/media/movies:ro"
+      - "/volume1/video/TV Shows:/media/tv:ro"
+      - "/volume1/audio/Music:/media/music:ro"
+      - "/volume1/audio/Audiobooks:/media/audiobooks:ro"

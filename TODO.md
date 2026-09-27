@@ -74,6 +74,10 @@ Working method: one stage at a time, one action at a time, confirm before moving
   - Left in place: the test ISO in `/volume1/download/qbittorrent` and its torrent (category `prowlarr`); delete it in qBittorrent (remove with files) when no longer wanted.
   - [x] 12e-1. Gateway tile (2026-09-21): Prowlarr tile after qBittorrent, `rel="noopener noreferrer"`; a click lands on Prowlarr's login page (tested in Chrome). Backup `index.html.bak-2026-09-21b`; `NOTES.md` in `/volume1/docker/status-page` updated.
   - [x] 12e-2. `README.md` and `CHANGELOG.md` written (2026-09-21). Nothing is committed yet: the first commit waits for the user's go-ahead.
+- [ ] 13. Sonarr (prepared locally, not deployed; 2026-09-27)
+  - [x] 13a. Added the LinuxServer Sonarr service to `gluetun/docker-compose.yml`: PUID 1031, PGID 100, UMASK 002, Europe/Amsterdam, restart unless-stopped, UI port 8989 bound to NAS loopback only, and mounts for `/config`, the shared `/downloads` path, and the existing TV library at `/tv`.
+  - [x] 13b. Documented the SSH local forward (`ssh -L 8989:127.0.0.1:8989 ok040`), browser URL, initial authentication, `/tv` root folder, and the later Prowlarr/qBittorrent integration steps in `README.md`. Sonarr is not directly exposed to LAN/Tailscale.
+  - [ ] 13c. On the NAS, create `/volume1/docker/sonarr/config`, apply the updated Compose project, access the UI through the documented SSH tunnel, and enable Sonarr authentication at first setup. Then configure `/tv` as the series root and add Prowlarr/qBittorrent integrations in a later step. Existing TV path permissions include ACLs; verify Sonarr can read/write as intended. Plex is expected to scan its configured TV root; automatic pickup is not verified.
 
 ## Next: switch VPN provider to AirVPN (user has an AirVPN account, 2026-09-21)
 

@@ -1,11 +1,12 @@
 # synology-nas
 
-Configuration and notes for running **qBittorrent** and **Prowlarr** on a Synology DS225+ (DSM 7.4, Container Manager) so that all torrent traffic goes through a VPN and **stops completely if the VPN fails**.
+Configuration and notes for running **qBittorrent**, **Prowlarr**, and **Sonarr** on a Synology DS225+ (DSM 7.4, Container Manager). Torrent traffic goes through a VPN and **stops completely if the VPN fails**; Sonarr manages the existing TV library.
 
 ```
 qBittorrent ──► Gluetun ──► WireGuard ──► AirVPN (Netherlands) ──► Internet
                   ▲
 Prowlarr ─────────┘  (talks to qBittorrent's Web UI at gluetun:8080; itself not behind the VPN)
+Sonarr (8989) ───────► /tv (existing Plex TV library)
 ```
 
 It is written for one household NAS, not as a reusable product. The repo holds the Compose project, a kill-switch test and the working notes; the containers and their data live on the NAS.
@@ -14,7 +15,8 @@ It is written for one household NAS, not as a reusable product. The repo holds t
 
 - **Kill switch.** qBittorrent has no network of its own (`network_mode: "service:gluetun"`). With the tunnel down, or Gluetun stopped, it can reach nothing. `scripts/kill-switch-test.sh` proves it.
 - **Inbound peers.** AirVPN forwards one fixed port (see [Configuration](#configuration)) to qBittorrent, so seeding works.
-- **Web UIs on LAN and Tailscale.** qBittorrent on port 8080, Prowlarr on 9696. The DSM interface is not exposed through the VPN.
+- **Web UIs.** qBittorrent on port 8080 and Prowlarr on 9696 are reachable on LAN and Tailscale. Sonarr port 8989 is prepared but not deployed; its UI will bind to NAS loopback and is not directly exposed on LAN or Tailscale. The DSM interface is not exposed through the VPN.
+- **Sonarr configuration prepared.** Sonarr will use the existing downloads and TV library paths. Its UI requires an SSH local forward, and its service has not been deployed or configured yet.
 - **Persistence.** Settings live in `/volume1/docker/<service>/config`; downloads go to the normal shared folder `/volume1/download/qbittorrent`. Both survive restarts and image updates.
 - **Fallback.** `gluetun/docker-compose.nordvpn.yml` is the previous NordVPN setup (no port forwarding).
 
@@ -26,7 +28,8 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
 
    ```sh
    ssh ok040 'mkdir -p /volume1/docker/gluetun /volume1/docker/qbittorrent/config /volume1/docker/prowlarr/config /volume1/download/qbittorrent \
-     && chmod 775 /volume1/docker/gluetun /volume1/docker/qbittorrent /volume1/docker/qbittorrent/config /volume1/docker/prowlarr /volume1/docker/prowlarr/config /volume1/download/qbittorrent'
+     && mkdir -p /volume1/docker/sonarr/config \
+     && chmod 775 /volume1/docker/gluetun /volume1/docker/qbittorrent /volume1/docker/qbittorrent/config /volume1/docker/prowlarr /volume1/docker/prowlarr/config /volume1/docker/sonarr /volume1/docker/sonarr/config /volume1/download/qbittorrent'
    ```
 
 2. **Create the private `.env`.** In the AirVPN Client Area, use the Config Generator (WireGuard, Linux, Netherlands) and reserve a forwarded port at `https://airvpn.org/ports/` (TCP+UDP, remote = local port). Copy `gluetun/.env.example` to `/volume1/docker/gluetun/.env` on the NAS, fill it in and lock it down:
@@ -53,6 +56,14 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
 
 6. **First logins.** Read qBittorrent's temporary admin password from its container log (Container Manager → Container → `qbittorrent` → Log) and set your own; set a Forms login in Prowlarr. Then in Prowlarr add qBittorrent as a download client (`gluetun`, port 8080). Set qBittorrent's listening port to the forwarded port.
 
+7. **Sonarr setup (prepared, not deployed).** After applying the updated Compose file, open an SSH local forward from your computer:
+
+   ```sh
+   ssh -L 8989:127.0.0.1:8989 ok040
+   ```
+
+   Then browse to `http://127.0.0.1:8989`. Port 8989 binds to NAS loopback and is not directly exposed to LAN or Tailscale; use the SSH tunnel for admin access. Enable Sonarr authentication during initial setup. Add `/tv` as Sonarr's series root folder; it maps to the existing `/volume1/video/TV Shows` Plex library. The `/downloads` path maps to the same qBittorrent downloads directory inside both containers. Prowlarr and qBittorrent integrations with Sonarr are later setup steps and are not configured by this change. Plex is expected to scan its already-configured TV root; automatic pickup has not been verified.
+
 ## Configuration
 
 | What | Where |
@@ -60,9 +71,10 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
 | Stack definition | `gluetun/docker-compose.yml` (project `gluetun-qbittorrent`) |
 | Secrets (WireGuard keys, address) | `/volume1/docker/gluetun/.env` on the NAS, mode 600; template in `gluetun/.env.example` |
 | Forwarded port | `FIREWALL_VPN_INPUT_PORTS` in the Compose file, and qBittorrent's listening port (`Session\Port`); both must equal the port reserved at AirVPN |
-| Web UIs | qBittorrent `http://<nas>:8080`, Prowlarr `http://<nas>:9696`; from outside the house use the NAS's Tailscale address |
-| Service config | `/volume1/docker/qbittorrent/config`, `/volume1/docker/prowlarr/config` |
+| Web UIs | qBittorrent `http://<nas>:8080`, Prowlarr `http://<nas>:9696`; Sonarr `http://127.0.0.1:8989` through `ssh -L 8989:127.0.0.1:8989 ok040` (loopback only, not directly exposed to LAN/Tailscale) |
+| Service config | `/volume1/docker/qbittorrent/config`, `/volume1/docker/prowlarr/config`, `/volume1/docker/sonarr/config` |
 | Downloads | `/volume1/download/qbittorrent` (files are group-writable: `UMASK=002`) |
+| Sonarr paths | `/downloads` for qBittorrent downloads; `/tv` for the existing `/volume1/video/TV Shows` library |
 
 ## Operating it
 

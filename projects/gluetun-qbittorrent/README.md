@@ -18,6 +18,8 @@ It is written for one household NAS, not as a reusable product. The repo holds t
 - **Web UIs.** qBittorrent on port 8080 and Prowlarr on 9696 follow the existing published-port setup. Sonarr uses the same pattern on port 8989.
 - **Sonarr deployed.** Sonarr is running on port 8989, authentication is enabled, `/tv` points to the existing Plex TV folder, and qBittorrent is configured at `gluetun:8080`. A real completed-episode import and Plex pickup have not yet been verified.
 - **Persistence.** Settings live in `/volume1/docker/<service>/config`; downloads go to the normal shared folder `/volume1/download/qbittorrent`. Both survive restarts and image updates.
+- **Boot start.** `scripts/start-stack.sh` is run by a DSM Task Scheduler boot-up task (as root): it waits for Docker, then runs `docker compose -p gluetun-qbittorrent up -d --no-recreate`. It exists because Container Manager skipped qBittorrent after a reboot (it had exited 137). Copy it to `/volume1/docker/gluetun/start-stack.sh`; the task was not in the task list on 2026-10-01, so check that it still exists.
+- **Book manager.** LazyLibrarian (port 5299) runs in the same project; see the Configuration table.
 - **Fallback.** `projects/gluetun-qbittorrent/docker-compose.nordvpn.yml` is the previous NordVPN setup (no port forwarding).
 
 ## Quick start

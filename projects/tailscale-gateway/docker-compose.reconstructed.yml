@@ -1,0 +1,17 @@
+# RECONSTRUCTED from `docker inspect` on 2026-10-01. The real container was created through the
+# Container Manager GUI and has no Compose file on the NAS (it is named tailscale-tailscale-1).
+# Create it with this file or the equivalent GUI settings. The auth key is not stored in the repo.
+services:
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: tailscale-tailscale-1
+    restart: always
+    network_mode: host                # real tailscale0 interface; lets the NAS originate tailnet connections
+    privileged: true
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}      # reusable, non-expiring key from the Tailscale admin console
+      - TS_USERSPACE=false
+      - TS_EXTRA_ARGS=--hostname=ok040-gateway
+      - TS_STATE_DIR=/var/lib/tailscale   # without this, state is lost on restart (see README)
+    volumes:
+      - /volume1/docker/tailscale-gateway:/var/lib/tailscale

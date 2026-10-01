@@ -1,0 +1,26 @@
+services:
+  watchtower:
+    image: ghcr.io/nicholas-fedor/watchtower
+    container_name: watchtower
+    restart: always
+    labels:
+      # Report on updates for this container without touching it --
+      # self-updating is more risk than it's worth here.
+      - "com.centurylinklabs.watchtower.monitor-only=true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=21600
+      - WATCHTOWER_LOG_LEVEL=debug
+      - TZ=Europe/Amsterdam
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      - WATCHTOWER_NOTIFICATION_URL=ntfy://ntfy.sh/<your-private-topic>
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - "WATCHTOWER_NOTIFICATION_TEMPLATE={{if .Report}}{{if or .Report.Updated .Report.Failed}}Watchtower: {{range .Report.Updated}}updated {{.Name}} to {{.LatestImageID.ShortID}}. {{end}}{{range .Report.Failed}}FAILED updating {{.Name}}: {{.Error}}. {{end}}{{end}}{{end}}"
+    # tailscale-tailscale-1 and calibre-web keep auto-updating as before.
+    # immich-* and watchtower itself are added so their update status
+    # shows up on the homepage, but are marked monitor-only (in immich's
+    # compose file, and above for watchtower) so watchtower only reports
+    # on them instead of touching a multi-container app on its own.
+    command: tailscale-tailscale-1 calibre-web immich_server immich_machine_learning immich_redis immich_postgres watchtower prowlarr

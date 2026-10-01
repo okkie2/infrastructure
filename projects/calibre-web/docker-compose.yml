@@ -1,0 +1,17 @@
+services:
+  calibre-web:
+    # The NAS file says :latest, but the running container uses :nightly (checked 2026-10-01).
+    # Rebuilding from the NAS file would silently change the tag; this copy records what runs.
+    image: lscr.io/linuxserver/calibre-web:nightly
+    container_name: calibre-web
+    environment:
+      - PUID=1028                     # calibre: owner of /volume1/books
+      - PGID=100                      # users
+      - TZ=Europe/Amsterdam
+    volumes:
+      - /volume1/docker/calibre-web/config:/config
+      - /volume1/books:/books
+      - /volume1/docker/calibre-web/custom-cont-init.d:/custom-cont-init.d
+    ports:
+      - '8083:8083'
+    restart: always

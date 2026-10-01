@@ -18,12 +18,12 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager.
 
    ```sh
    ssh ok040 'mkdir -p /volume1/docker/jellyfin/config /volume1/docker/jellyfin/cache'
-   ssh ok040 'cat > /volume1/docker/jellyfin/docker-compose.yml' < docker-compose.yml
+   ssh ok040 'cat > /volume1/docker/jellyfin/docker-compose.yml' < projects/jellyfin/docker-compose.yml
    ```
 
 2. **Create the project** in DSM: Container Manager → Project → Create. Name `jellyfin`, path `/docker/jellyfin`, "Use existing docker-compose.yml", start it.
 
-3. **First login** at `http://<nas>:8096` (or the Tailscale address), create the admin account, then add the Music library pointing at `/media/music`.
+3. **First login** at `http://<nas>:8096`, create the admin account, then add the Music library pointing at `/media/music`.
 
 ## Libraries
 

@@ -81,4 +81,30 @@ services:
       - /volume1/download/qbittorrent:/downloads
       - /volume1/video/TV Shows:/tv
     ports:
-      - "100.126.55.95:8989:8989"      # Sonarr UI on the NAS Tailscale IP only
+      - "8989:8989"                   # Sonarr Web UI, same published-port pattern as existing apps
+
+  # Book manager (Readarr is retired). Not behind Gluetun. Imports finished books into the
+  # existing Calibre library with calibredb, which Calibre-Web serves from the same folder.
+  lazylibrarian:
+    image: lscr.io/linuxserver/lazylibrarian:latest
+    container_name: lazylibrarian
+    restart: unless-stopped
+    environment:
+      - PUID=1028                     # calibre: the only account with write access to the Calibre library ACL
+      - PGID=100                      # users
+      - UMASK=002
+      - TZ=Europe/Amsterdam
+      - DOCKER_MODS=linuxserver/mods:universal-calibre   # provides /usr/bin/calibredb
+    volumes:
+      - /volume1/docker/lazylibrarian/config:/config
+      - /volume1/download/qbittorrent:/downloads
+      - /volume1/books:/books         # Calibre library is /books/Library
+    ports:
+      - "5299:5299"                   # LazyLibrarian Web UI, same published-port pattern as existing apps
+    healthcheck:
+      # Any HTTP answer counts (the login returns 401); only a dead or hung web server fails.
+      test: ["CMD-SHELL", "curl -s -o /dev/null -m 5 http://localhost:5299/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 600s              # the universal-calibre mod reinstalls its packages on every (re)create, ~5-8 min

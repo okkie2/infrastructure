@@ -107,12 +107,11 @@ Phone alerts use **ntfy** (one private topic, shared by Watchtower and the Kindl
 
 The live list is [host → Open items](projects/host/README.md#open-items-2026-10-05). The ones that can bite:
 
-- **A stale Ansible folder on the NAS** keeps its own copies of the Compose files, which differ from the running ones. Ansible is not installed anywhere, so nothing runs it, but it is a trap; the recommendation is to retire it (see [host → Automation outside Docker](projects/host/README.md#automation-outside-docker)).
 - Single drive, no RAID; backups unencrypted; no restore ever tested.
 
 ## Not in this repo
 
-The Tailscale access policy and key settings (admin console); Hyper Backup's own task store (its settings are copied into the host README); Plex's configuration (it lives in the `PlexMediaServer` share, which the backup covers); every secret; and NAS-only files: `~/ansible`, `~/keeper-deploy`, `/volume1/docker/BACKUP-INFRA-TODO.md`, `/volume1/docker/status-page/NOTES.md`.
+The Tailscale access policy and key settings (admin console); Hyper Backup's own task store (its settings are copied into the host README); Plex's configuration (it lives in the `PlexMediaServer` share, which the backup covers); every secret; and NAS-only files: `~/ansible.retired-2026-10-05` (an unused, retired Ansible setup), `~/keeper-deploy`, `/volume1/docker/BACKUP-INFRA-TODO.md`, `/volume1/docker/status-page/NOTES.md`.
 
 ## How this repo is kept
 

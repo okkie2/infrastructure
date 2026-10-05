@@ -11,7 +11,7 @@ Everything that is not a container but that the containers depend on. Captured r
 | Storage | One volume, `/volume1` (btrfs), 7.0 TB (1.6 TB used on 2026-10-05), on a **single drive**: WD Red 8 TB (`WD80EFPX`, CMR). The data array `md2` is a RAID1 with one member, **by choice (cost)**, so there is **no disk redundancy**: a dead disk loses the volume. DSM's system partitions show `[U_]` for the empty second bay. Spinning disk, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
 | Disk health (2026-10-05) | SMART PASSED; 1,784 power-on hours, 48 power cycles, 30 °C; zero reallocated, pending, offline-uncorrectable and CRC errors; error log empty. No SMART self-test had ever been run before 2026-10-05; two short tests since then completed without error, and weekly quick and monthly extended tests are now scheduled (see Scheduled tasks). |
 | GPU | Intel QuickSync, `/dev/dri`. Jellyfin uses it; Immich transcoding is CPU only. |
-| SSH | Enabled; the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
+| SSH | Enabled on **port 9022** (`ssh ok040`), password login allowed; the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
 | Tailscale | Not the DSM package. The `tailscale-tailscale-1` container is the NAS's Tailscale node. See [tailscale-gateway](../tailscale-gateway/). |
 
 ## Packages installed (Package Center)
@@ -44,7 +44,9 @@ Permissions are partly Synology ACLs (the `+` in `ls -l`), which a plain `chmod`
 | Notes Daily Copy | joost | daily 02:00 | Copies `/volume1/homes/joost/Notes` to `/volume1/homes/joost/Notes-backups/Notes-<timestamp>` and keeps the newest 8. Script below. |
 | Media Docker (backup) and verify | root | Sundays 12:15 / 21:00 | Hyper Backup run and verify for the "Media Docker" repo. |
 | Timemachine Homes (backup) and verify | root | Sundays 00:15 / 09:00 | Hyper Backup run and verify for the "Timemachine Homes" repo. |
-| DSM Auto Update, Run security advisor, Security advisor reports | root | weekly / monthly / daily | Synology defaults. |
+| DSM Auto Update | root | Wednesdays 05:40 | `synoupgrade --autoupdate` (Synology default). |
+| Run security advisor | root | Sundays 03:13 | Security scan (Synology default). |
+| Task 7 / Task 8 | root | 1st of the month 00:00 / daily 00:00 | `securityadvisorreport monthly 1` / `securityadvisorreport daily 1` (Synology defaults). |
 | SMART Quicktest | root | Saturdays 01:00 | `/usr/bin/smartctl -d sat -t short /dev/sata1` (about 2 minutes). Added 2026-10-05. |
 | SMART Extended test | root | first Saturday of the month, 02:00 | `/usr/bin/smartctl -d sat -t long /dev/sata1` (about 13 hours; the drive estimates 784 minutes). Added 2026-10-05; the first run was started by hand at 15:51 that day. Read results with `sudo smartctl -d sat -l selftest /dev/sata1`. |
 | Boot-up task for `gluetun/start-stack.sh` | root | at boot | Described in [gluetun-qbittorrent](../gluetun-qbittorrent/). **Exists and works (checked 2026-10-05)**: it is a triggered task named "Start Gluetun stack" (Boot-up, enabled, runs `sh /volume1/docker/gluetun/start-stack.sh`) and last ran at 2026-09-27 09:44, one minute after the NAS booted. Triggered tasks are stored in `/usr/syno/etc/esynoscheduler/esynoscheduler.db`, not in the cron-style task list, so `synoschedtask --get` does not show them. |
@@ -133,6 +135,55 @@ A 79 MB crash dump `/volume1/@jellyfin.…core.gz` dates from 2026-09-27 (Jellyf
 
 Images that remain on the NAS without a container: `ghcr.io/okkie2/brain-mcp` (7 old digests; its container is gone and its deploy script `~/brain-mcp-deploy/deploy.sh` was not found).
 
+## Network and services
+
+Checked on the NAS on 2026-10-05.
+
+| Item | Value |
+|---|---|
+| LAN | `eth0` `192.168.178.110/24` (LAN subnet `192.168.178.0/24`); DNS server `213.46.228.196`. `eth1` has only a link-local address. |
+| Tailscale | `100.126.55.95` (the gateway container), see [tailscale-gateway](../tailscale-gateway/) |
+| Firewall | `synofirewall --status` printed nothing, so the DSM firewall state is **not confirmed**; check Control Panel → Security → Firewall. Router port forwarding is not recorded anywhere. |
+
+What listens (bind address in brackets; "all" means LAN and Tailscale):
+
+| Port | Process | Bind | Notes |
+|---|---|---|---|
+| 80, 443 | nginx | all | Web Station: the gateway homepage |
+| 5000, 5001 | nginx | all | DSM over HTTP / HTTPS; Security Advisor flags HTTPS not enforced and the default ports |
+| 8084 | nginx | all | Purpose not identified |
+| 5357 | nginx | all | WS-Discovery (Windows network discovery) |
+| 139, 445 | smbd | all | SMB: shares and Time Machine |
+| 9022 | sshd | all | SSH |
+| 161 | snmpd | 127.0.0.1 | SNMP is local only |
+| 512 | termd | 127.0.0.1 | DSM terminal service |
+| 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI). Whether any LUN or target exists was not checked. |
+| 5432 | postgres | 127.0.0.1 | DSM's own database, not Immich's |
+| 2283, 5299, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
+| 8766 | docker-proxy | `100.126.55.95` | Keeper, Tailscale only |
+| 8000 | docker-proxy | 127.0.0.1 | Gluetun control server |
+| 32400 | Plex Media Server | all | Plex; 32401, 32600 and the "Plex Script Host" ports are local |
+| 45139, 61465 | tailscaled | `100.126.55.95` / IPv6 | Tailscale itself |
+
+Installed DSM packages not described elsewhere in this repo: **ScsiTarget** (iSCSI), **Hybrid Share**, **USB Copy**, **Migration Assistant**, **QuickConnect** (whether it is switched on was not checked). The Active Backup and Snapshot Replication packages are not installed; whether DDNS is configured was not checked.
+
+## Power schedule
+
+DSM's Task Scheduler lists two power tasks, `PowerOff` and `PowerOn task 0`, both **disabled** (seen in the UI on 2026-10-05). The NAS therefore runs around the clock.
+
+## Automation outside Docker
+
+Things that run on the NAS but are not Compose projects. None of these files are in this repo.
+
+| What | Where | State on 2026-10-05 |
+|---|---|---|
+| **Keeper recovery watcher** | `~/keeper-deploy/` (`deploy.sh`, `install-recovery.sh`, `keeper-recover-watch.sh`, `recover-tailscale-bind.sh`); installed as `/etc/systemd/system/keeper-recover.service` with `/usr/local/libexec/keeper/` | Keeper binds to the Tailscale address, which only exists once the Tailscale container is up; when Docker starts Keeper too early the start fails. The watcher listens to Docker's event stream and starts Keeper again after Tailscale starts. **The unit is enabled but was not running** (inactive, empty journal), so it is unknown whether it still protects a reboot. The old polling timer was retired by the install script; `keeper-recover.timer` in the folder is a leftover. |
+| **Ansible** | `~/ansible/` (`site.yml`, role `docker_container`, `group_vars/ok040.yml`, `files/<project>/docker-compose.yml`) | Copies each project's Compose file to `/volume1/docker/<project>/` and runs `docker compose up`. **Its copies have drifted from the running files**: `gluetun` differs by 43 lines (it lacks Sonarr and LazyLibrarian), `calibre-web` by 5, `watchtower` by 2; Immich matches. It also holds a reconstructed `brain-mcp` file with a stale Tailscale IP. Running the playbook could redeploy old definitions. **Decision pending**: retire it, or resync its files from this repo. |
+| `~/find-agent-cli.sh` | home of `master` | Helper that locates an agent CLI (`claude` by default) on DSM. |
+| `~/brain-mcp-access-findings.md` | home of `master` | A 2026-09-11 note on remote access for the Brain MCP service (the container no longer exists; see Containers below). |
+| `~/repos/ai-rules` | home of `master` | A clone of the `ai-rules` repository. |
+| `/volume1/docker/BACKUP-INFRA-TODO.md`, `/volume1/docker/status-page/NOTES.md` | NAS only | Older working notes, partly stale. |
+
 ## Docker logging
 
 Container Manager uses Synology's `db` log driver (`"log-driver": "db"` in `/var/packages/ContainerManager/etc/dockerd.json`): each container's log is a SQLite file `log.db` under `/volume1/@docker/containers/<id>/`. Sizes are small (the largest was 7 MB on 2026-10-05). **Watchtower's log stalled**: its last entry is 2026-10-01 11:42, and `docker logs watchtower` hangs (even `--tail 5`) while other containers answer in about a second. See [watchtower](../watchtower/) and [status-page](../status-page/).
@@ -145,6 +196,9 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
 - [ ] Immich backup: add a third copy (USB drive and/or encrypted cloud) and test one restore (see [immich](../immich/#backups)). Snapshot Replication is optional.
+- [ ] **Decide about Ansible** (retire it, or resync its Compose files from this repo) before anyone runs it.
+- [ ] Find out why `keeper-recover.service` is inactive and whether it should be started.
+- [ ] Check the DSM firewall, whether QuickConnect is on, and whether any iSCSI target exists.
 - [ ] Read the result of the first extended SMART test (started 2026-10-05 15:51, due about 05:00 the next morning).
 - [ ] Decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.

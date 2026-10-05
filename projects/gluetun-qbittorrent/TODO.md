@@ -116,8 +116,8 @@ Readarr is retired and its image deprecated, so LazyLibrarian is used instead.
 ## Bazarr (deployed 2026-10-05)
 
 - [x] Add the service to `docker-compose.yml`, create `/volume1/docker/bazarr/config` and start it.
-- [ ] **Set a Bazarr login** (Settings → General → Security): it currently has none.
-- [ ] Link Radarr and Sonarr (`http://radarr:7878`, `http://sonarr:8989`, with their API keys), add subtitle providers (OpenSubtitles account) and a language profile, and turn on subtitle sync.
+- [x] Set a Bazarr login (Forms, 2026-10-05) and link Radarr and Sonarr (tests pass).
+- [ ] Add subtitle providers (OpenSubtitles account) and a language profile, and turn on subtitle sync.
 - [ ] Verify one movie gets a subtitle that is in sync in Plex or Jellyfin.
 
 ## Radarr (deployed 2026-10-05)

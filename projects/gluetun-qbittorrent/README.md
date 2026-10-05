@@ -118,8 +118,9 @@ Deployed on **2026-10-05** as the subtitle companion of Radarr and Sonarr, in th
 |---|---|
 | Library | `/volume1/video/Movies` is mounted at `/movies` and `/volume1/video/TV Shows` at `/tv`, both writable (the same paths Radarr and Sonarr use, so no path mapping is needed). |
 | Sync | Bazarr's own sync option (ffsubsync) retimes a subtitle against the audio; it fixes a constant offset or frame-rate drift, not a subtitle from a different cut. |
-| Login | **None yet.** Bazarr is open to anyone on the LAN or tailnet until a login is set (Settings → General → Security). |
-| Configuration | **Not done yet.** Still to do in its UI: link Radarr (`http://radarr:7878`) and Sonarr (`http://sonarr:8989`) with their API keys, add subtitle providers (an OpenSubtitles account avoids the daily limit), and create a language profile. |
+| Login | **Forms authentication** (set 2026-10-05; username `admin`, password kept in your password manager, never in this repo). |
+| Radarr and Sonarr | Both linked (2026-10-05) at `100.126.55.95` ports `7878` and `8989` with their API keys; the tests pass and the live feeds are connected. If the Tailscale address ever changes, update both on Bazarr's Settings → Sonarr/Radarr tabs. |
+| Still to do | Subtitle providers (an OpenSubtitles account avoids the daily limit), a language profile, and subtitle sync. |
 | Homepage | A Bazarr tile sits next to Radarr on the gateway page. |
 
 Folder creation (only for a rebuild): `ssh ok040 'mkdir -p /volume1/docker/bazarr/config && sudo chown -R downloader:users /volume1/docker/bazarr && sudo chmod -R 775 /volume1/docker/bazarr'`. Then deploy with `cd /volume1/docker/gluetun && sudo docker compose -p gluetun-qbittorrent up -d --no-deps bazarr`. Bazarr is not in Watchtower's list, so update it by hand.

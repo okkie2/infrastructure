@@ -143,7 +143,8 @@ Checked on the NAS on 2026-10-05.
 |---|---|
 | LAN | `eth0` `192.168.178.110/24` (LAN subnet `192.168.178.0/24`); DNS server `213.46.228.196`. `eth1` has only a link-local address. |
 | Tailscale | `100.126.55.95` (the gateway container), see [tailscale-gateway](../tailscale-gateway/) |
-| Firewall | `synofirewall --status` printed nothing, so the DSM firewall state is **not confirmed**; check Control Panel → Security → Firewall. Router port forwarding is not recorded anywhere. |
+| Firewall | DSM firewall **on** (profile `default`). Its `INPUT_FIREWALL` chain has four rules: accept loopback, accept established connections, pass the LAN range `192.168.178.0-254`, pass UDP 41641 (Tailscale); no explicit deny rule was visible, so it does not appear to block anything by itself. Read from `iptables` on 2026-10-05; confirm the intent in Control Panel → Security → Firewall. Router port forwarding is not recorded anywhere. |
+| QuickConnect / DDNS | QuickConnect is **off** (an ID exists, `enabled` is false); no DDNS records are configured (DSM API, 2026-10-05). |
 
 What listens (bind address in brackets; "all" means LAN and Tailscale):
 
@@ -157,7 +158,7 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 | 9022 | sshd | all | SSH |
 | 161 | snmpd | 127.0.0.1 | SNMP is local only |
 | 512 | termd | 127.0.0.1 | DSM terminal service |
-| 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI). Whether any LUN or target exists was not checked. |
+| 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI); it has no targets or LUNs, but its ports listen on every interface. |
 | 5432 | postgres | 127.0.0.1 | DSM's own database, not Immich's |
 | 2283, 5299, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
 | 8766 | docker-proxy | `100.126.55.95` | Keeper, Tailscale only |
@@ -165,7 +166,7 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 | 32400 | Plex Media Server | all | Plex; 32401, 32600 and the "Plex Script Host" ports are local |
 | 45139, 61465 | tailscaled | `100.126.55.95` / IPv6 | Tailscale itself |
 
-Installed DSM packages not described elsewhere in this repo: **ScsiTarget** (iSCSI), **Hybrid Share**, **USB Copy**, **Migration Assistant**, **QuickConnect** (whether it is switched on was not checked). The Active Backup and Snapshot Replication packages are not installed; whether DDNS is configured was not checked.
+Installed DSM packages not described elsewhere in this repo: **ScsiTarget** (iSCSI), **Hybrid Share**, **USB Copy**, **Migration Assistant**, **QuickConnect** (switched off). The Active Backup and Snapshot Replication packages are not installed. **ScsiTarget has no targets and no LUNs**, so it is unused.
 
 ## Power schedule
 
@@ -196,7 +197,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
 - [ ] Immich backup: add a third copy (USB drive and/or encrypted cloud) and test one restore (see [immich](../immich/#backups)). Snapshot Replication is optional.
-- [ ] Check the DSM firewall, whether QuickConnect is on, and whether any iSCSI target exists.
+- [ ] Decide whether the unused **ScsiTarget** package should be removed (it listens on the LAN with nothing to serve) and whether the DSM firewall should get a deny rule.
 - [ ] Read the result of the first extended SMART test (started 2026-10-05 15:51, due about 05:00 the next morning).
 - [ ] Decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.

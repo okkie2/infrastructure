@@ -1,0 +1,52 @@
+#!/bin/bash
+# fix-epub <calibre-book-id> [--dry-run]
+# Rebuilds a badly split EPUB (thousands of tiny HTML files that Amazon cannot deliver to
+# Kindle) via Calibre on this Mac, then puts it back into the NAS Calibre library.
+# The original EPUB is kept on the NAS in /volume1/docker/_scratch/epub-backup/.
+set -euo pipefail
+
+ID="${1:?usage: fix-epub <calibre-book-id> [--dry-run]}"
+DRY="${2:-}"
+NAS=ok040
+EC=/Applications/calibre.app/Contents/MacOS/ebook-convert
+D="sudo -n /usr/local/bin/docker"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+[ -x "$EC" ] || { echo "Calibre not found at $EC" >&2; exit 1; }
+
+# Locate the EPUB in the Calibre library (path as seen on the NAS).
+REL="$(ssh "$NAS" "$D exec lazylibrarian calibredb list --with-library /books/Library \
+  --search id:$ID --fields formats --for-machine" | python3 -c '
+import json,sys
+rows=json.load(sys.stdin)
+f=[x for r in rows for x in r.get("formats",[]) if x.lower().endswith(".epub")]
+print(f[0] if f else "")')"
+[ -n "$REL" ] || { echo "Book $ID has no EPUB in the library" >&2; exit 1; }
+SRC="/volume1${REL}"              # container path /books/... -> NAS /volume1/books/...
+echo "Book $ID: $SRC"
+
+ssh "$NAS" "cat \"$SRC\"" > "$WORK/original.epub"
+BEFORE=$(python3 -c "import zipfile,re;z=zipfile.ZipFile('$WORK/original.epub');o=[n for n in z.namelist() if n.endswith('.opf')][0];print(len(re.findall(rb'<(?:\w+:)?itemref',z.read(o))))")
+echo "Internal files before: $BEFORE"
+
+"$EC" "$WORK/original.epub" "$WORK/mid.htmlz" >/dev/null 2>&1
+"$EC" "$WORK/mid.htmlz" "$WORK/fixed.epub" --dont-split-on-page-breaks --chapter-mark none \
+  --epub-version 3 >/dev/null 2>&1
+AFTER=$(python3 -c "import zipfile,re;z=zipfile.ZipFile('$WORK/fixed.epub');o=[n for n in z.namelist() if n.endswith('.opf')][0];print(len(re.findall(rb'<(?:\w+:)?itemref',z.read(o))))")
+echo "Internal files after:  $AFTER"
+[ "$AFTER" -lt "$BEFORE" ] || { echo "Rebuild did not reduce the file count; library left untouched." >&2; exit 1; }
+
+if [ "$DRY" = "--dry-run" ]; then
+  cp "$WORK/fixed.epub" "$HOME/Downloads/fix-epub-$ID-dryrun.epub"
+  echo "Dry run: wrote ~/Downloads/fix-epub-$ID-dryrun.epub, library untouched."
+  exit 0
+fi
+
+STAMP="$(date +%Y%m%d-%H%M%S)"
+ssh "$NAS" "mkdir -p /volume1/docker/_scratch/epub-backup && cp -p \"$SRC\" /volume1/docker/_scratch/epub-backup/book$ID-original-$STAMP.epub"
+ssh "$NAS" "cat > /volume1/docker/_scratch/epub-backup/book$ID-fixed-$STAMP.epub" < "$WORK/fixed.epub"
+ssh "$NAS" "$D cp /volume1/docker/_scratch/epub-backup/book$ID-fixed-$STAMP.epub lazylibrarian:/tmp/fix-$ID.epub && \
+  $D exec lazylibrarian calibredb add_format $ID /tmp/fix-$ID.epub --with-library /books/Library && \
+  $D exec lazylibrarian rm -f /tmp/fix-$ID.epub"
+echo "Done. Book $ID now has the rebuilt EPUB; original backed up on the NAS ($STAMP)."

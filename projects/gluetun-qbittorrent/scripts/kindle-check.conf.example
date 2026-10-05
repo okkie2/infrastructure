@@ -1,0 +1,3 @@
+# Copy to /volume1/docker/lazylibrarian/config/kindle-check.conf on the NAS (mode 640).
+# The topic is private: anyone who knows it can read the alerts. Use the same topic as Watchtower.
+NTFY_URL=https://ntfy.sh/<your-private-topic>

@@ -107,8 +107,7 @@ Phone alerts use **ntfy** (one private topic, shared by Watchtower and the Kindl
 
 The live list is [host → Open items](projects/host/README.md#open-items-2026-10-05). The ones that can bite:
 
-- **A stale Ansible setup on the NAS** keeps its own copies of the Compose files, which differ from the running ones; running it could redeploy old definitions (see [host → Automation outside Docker](projects/host/README.md#automation-outside-docker)).
-- **Keeper's recovery watcher** is installed but was not running on 2026-10-05.
+- **A stale Ansible folder on the NAS** keeps its own copies of the Compose files, which differ from the running ones. Ansible is not installed anywhere, so nothing runs it, but it is a trap; the recommendation is to retire it (see [host → Automation outside Docker](projects/host/README.md#automation-outside-docker)).
 - Single drive, no RAID; backups unencrypted; no restore ever tested.
 
 ## Not in this repo

@@ -120,8 +120,8 @@ Deployed on **2026-10-05** as the subtitle companion of Radarr and Sonarr, in th
 | Sync | Bazarr's own sync option (ffsubsync) retimes a subtitle against the audio; it fixes a constant offset or frame-rate drift, not a subtitle from a different cut. |
 | Login | **Forms authentication** (set 2026-10-05; username `admin`, password kept in your password manager, never in this repo). |
 | Radarr and Sonarr | Both linked (2026-10-05) at `100.126.55.95` ports `7878` and `8989` with their API keys; the tests pass and the live feeds are connected. If the Tailscale address ever changes, update both on Bazarr's Settings → Sonarr/Radarr tabs. |
-| Providers and language | Providers: OpenSubtitles.com (with an account) and subf2m (this Bazarr version has no Podnapisi). One language profile, `English`, is assigned only to the series *North and South*; other series and all movies have no profile, so Bazarr does nothing for them yet. |
-| Still to do | Turn on subtitle sync, and decide whether to give the other series and the movies the `English` profile. |
+| Providers and language | Providers: OpenSubtitles.com (with an account) and subf2m (this Bazarr version has no Podnapisi). One language profile, `English`, is assigned to every series except the Dutch one (*André van Duin - Lach mee met André*), which has none. Bazarr's Movies list is empty because Radarr tracks 0 movies (the 226 existing films were never imported), so no movie gets subtitles until they are. |
+| Still to do | Turn on subtitle sync, and import the existing films into Radarr (Library Import) so Bazarr can see them; then give them the `English` profile except Dutch and German ones. |
 | Homepage | A Bazarr tile sits next to Radarr on the gateway page. |
 
 Folder creation (only for a rebuild): `ssh ok040 'mkdir -p /volume1/docker/bazarr/config && sudo chown -R downloader:users /volume1/docker/bazarr && sudo chmod -R 775 /volume1/docker/bazarr'`. Then deploy with `cd /volume1/docker/gluetun && sudo docker compose -p gluetun-qbittorrent up -d --no-deps bazarr`. Bazarr is not in Watchtower's list, so update it by hand.

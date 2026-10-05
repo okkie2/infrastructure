@@ -28,9 +28,9 @@ Then in Control Panel → Task Scheduler create a user-defined script task as `r
 ## How the signals are read
 
 - **Time Machine**: mtime of `/volume1/timemachine/joost.sparsebundle`.
-- **OK035 backup**: mtime of the Hyper Backup cache dirs under `/volume1/@img_bkp_cache/`. This is a recency proxy, not a confirmed success; it catches "has not run in a week", not "ran and failed".
+- **OK035 backup**: mtime of the Hyper Backup cache dirs under `/volume1/@img_bkp_cache/` (the repositories appear as `Media Docker (Backup C)` and `Backup D`). This is a recency proxy, not a confirmed success; it catches "has not run in a week", not "ran and failed".
 - **Security Advisor**: `/var/lib/securityscan/securityscanResult.json`. Only `danger` and `risk` count as red; `info`, `warning`, `outOfDate` count as amber. Colour is the worse of scan age and findings.
-- **Watchtower**: `docker inspect` for image age and `docker logs watchtower` for the last check and per-container flag. The per-container flag needs `WATCHTOWER_LOG_LEVEL=debug`.
+- **Watchtower**: `docker inspect` for image age and `docker logs watchtower` for the last check and per-container flag. The per-container flag needs `WATCHTOWER_LOG_LEVEL=debug`. **Shows "unknown" since 2026-10-01**: Watchtower's log stopped receiving entries then and `docker logs watchtower` hangs (see [watchtower](../watchtower/)).
 - **Container list**: discovered from `docker ps -a`, so new containers appear without editing the script. Containers outside Watchtower's list show a "manual" badge.
 
 ## Gotchas (kept from the original notes)

@@ -18,6 +18,10 @@ Not in the list on purpose: `gluetun`, `qbittorrent`, `sonarr`, `lazylibrarian`,
 
 Immich is monitor-only because its database migrations are one-way, and `IMMICH_VERSION` is pinned in its `.env`.
 
+## Known problem (2026-10-05)
+
+Watchtower's log stopped being written on **2026-10-01 11:42** (last line: "Scheduled next run: 17:42:58"), although the container stays "Up (healthy)". `docker logs watchtower` hangs, even with `--tail 5`, while other containers answer in about a second. The log is only 4 MB in Synology's `db` log driver (see [host → Docker logging](../host/#docker-logging)), so size is not the cause. Consequences: the status page shows Watchtower as "unknown", and whether it still checks for updates every 6 hours is unconfirmed.
+
 ## Gotchas
 
 - `docker exec watchtower /watchtower --run-once` prints to your terminal only; `docker logs` never sees it, so the status page cannot use it.

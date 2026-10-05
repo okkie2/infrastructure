@@ -5,6 +5,7 @@
 - Added the LazyLibrarian "Kindle EPUB check": `scripts/kindle-check.py` runs as LazyLibrarian's `EXT_PREPROCESS` hook, counts an EPUB's spine items and sends an ntfy alert above 1,000. It only warns and always exits 0. Enabled through LazyLibrarian's API (no restart); `config.ini` backed up as `config.ini.bak-20261005-preprocess`. Hardened to skip a manifest over 20 MB. Tested locally, in the container as the LazyLibrarian user (one real alert delivered to the phone), and not yet seen on a real import.
 - Added `scripts/fix-epub` (Mac helper that rebuilds a fragmented EPUB with Calibre and adds it back to the library). Dry run on book 51 (568 → 66 files) passed; found and fixed a path bug first.
 - Documented the book pipeline gotchas and the notification mechanism ([host](../host/README.md#notifications-ntfy)); see the new LazyLibrarian section in the README.
+- Reviewed all project docs against the running NAS and corrected them: Hyper Backup sources, shares and settings are now recorded in [host](../host/README.md#backups); the indexer list, Sonarr import status and qBittorrent limits in this README; the boot-up task for `start-stack.sh` (it exists; triggered tasks are not in the cron-style list); Watchtower's stalled log; and an Immich backup plan in [immich](../immich/README.md#backups).
 
 ## 2026-10-04
 

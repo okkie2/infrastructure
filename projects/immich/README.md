@@ -40,4 +40,24 @@ ssh ok040 'cd /volume1/docker/immich && sudo docker compose up -d'
 
 Restoring an existing instance needs the `library` folder **and** the `postgres` folder from the same moment (or a database dump that matches the library). Restoring only one gives broken or missing photos. The Immich mobile app server URL is `http://100.126.55.95:2283`; log in as the admin you created, then add the external library.
 
-Confirm that `/volume1/docker/immich` is in a Hyper Backup source ([host](../host/)); it is not documented anywhere that it is.
+## Backups
+
+State on 2026-10-05:
+
+- Immich writes its own **database dump every night at 02:00** into `library/backups/` (`immich-db-backup-<timestamp>-v3.1.0-pg14.19.sql.gz`, about 162 MB each). 14 are kept (2.2 GB, 2026-09-22 to 2026-10-05). I did not check the setting that controls how many are kept.
+- `/volume1/docker` (library, dumps and the raw `postgres` data directory) is in the Hyper Backup task **Media Docker** → OK035 share `Backup C`, **weekly on Sundays at 12:15**. The external archive `/volume1/photo` is in the same task. See [host → Backups](../host/#backups).
+
+Gaps:
+
+1. **Weekly**: up to 7 days of newly uploaded photos exist only on the NAS.
+2. The live `postgres` data directory is copied as plain files while the database runs; such a copy may not restore cleanly. The dumps are the reliable copy.
+3. **One** off-site copy, stored unencrypted, on a single machine.
+4. No restore has ever been tried, and a failed backup produces no visible alert.
+
+Recommended, not applied:
+
+- Give Immich its own Hyper Backup task **every night after the 02:00 dump** (for example 03:30), covering `/docker/immich/library` and the photo archive, so the weekly 5-hour Media Docker job is no longer what protects photos.
+- **Exclude `/docker/immich/postgres`** from backups and rely on the dumps.
+- Add a **second, encrypted off-site copy** of the library and dumps (about 119 GB): Hyper Backup with client-side encryption to a cloud target (Synology C2, Backblaze B2 or S3), keeping OK035 as the first copy.
+- **Test one restore**: start a scratch Immich of the same pinned version, restore a dump following Immich's documentation, and compare photo counts; repeat after each Immich upgrade.
+- **Make failures visible**: configure DSM notifications or have the backup tasks call ntfy (see [host → Notifications](../host/#notifications-ntfy)).

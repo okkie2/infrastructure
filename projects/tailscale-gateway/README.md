@@ -26,6 +26,8 @@ On 2026-09-11 the container lost its identity after a reboot. It had the state f
 
 Watchtower is told this container by name (`tailscale-tailscale-1`). If the container is ever renamed, update `command:` in [watchtower](../watchtower/) or it silently stops updating it.
 
-## Other nodes on the tailnet (2026-10-01)
+## Other nodes on the tailnet (2026-10-05)
 
-`ok035` (backup target, `100.74.138.41`), `iphone-joost`, `ipad-air-10-5`, `macbook-joost`, and a second-account MacBook (`macbook-air`).
+`ok035` (backup target, `100.74.138.41`, offline), `iphone-joost`, `ipad-air-10-5`, `macbook-joost`, and two nodes on a second account (`jokkinga@`): `macbook-air` (offline for 31 days) and `ipad-van-johanna-li` (offline).
+
+`tailscale status` inside the container prints a health warning that the DSM kernel lacks the `connmark` iptables extension; the node works despite it.

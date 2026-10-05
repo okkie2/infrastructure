@@ -8,7 +8,7 @@ Everything that is not a container but that the containers depend on. Captured r
 |---|---|
 | Model | Synology DS225+ (`synology_geminilakenk_ds225+`), hostname `OK040-DS255Plus` |
 | DSM | 7.4.1-90080, kernel 5.10.55+ |
-| Storage | One volume, `/volume1`, 7.0 TB (1.5 TB used on 2026-10-01). Spinning disks, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
+| Storage | One volume, `/volume1`, 7.0 TB (1.6 TB used on 2026-10-05). Spinning disks, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
 | GPU | Intel QuickSync, `/dev/dri`. Jellyfin uses it; Immich transcoding is CPU only. |
 | SSH | Enabled; the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
 | Tailscale | Not the DSM package. The `tailscale-tailscale-1` container is the NAS's Tailscale node. See [tailscale-gateway](../tailscale-gateway/). |
@@ -25,7 +25,7 @@ Container Manager (Docker), Hyper Backup, Web Station, Plex Media Server, SMB Se
 | `calibre` | 1028 | Owns `/volume1/books`; Calibre-Web and LazyLibrarian run as this uid. |
 | `downloader` | 1031 | Runs qBittorrent, Prowlarr and Sonarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent` and `/volume1/video/TV Shows`. |
 | `joost` | 1029 | Personal account (home, Notes). Keeper runs as `1029:100`. |
-| `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account and is still enabled (Security Advisor `disable_admin` finding). |
+| `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account; Security Advisor's `disable_admin` check passes in the 2026-10-04 scan, so it appears to be disabled (confirm in Control Panel → User & Group). |
 
 All share the group `users` (gid 100). UIDs matter because the containers use them for file permissions; recreate the accounts so the numbers match, or change `PUID` in the Compose files.
 
@@ -44,7 +44,7 @@ Permissions are partly Synology ACLs (the `+` in `ls -l`), which a plain `chmod`
 | Media Docker (backup) and verify | root | Sundays 12:15 / 21:00 | Hyper Backup run and verify for the "Media Docker" repo. |
 | Timemachine Homes (backup) and verify | root | Sundays 00:15 / 09:00 | Hyper Backup run and verify for the "Timemachine Homes" repo. |
 | DSM Auto Update, Run security advisor, Security advisor reports | root | weekly / monthly / daily | Synology defaults. |
-| Boot-up task for `gluetun/start-stack.sh` | root | at boot | Described in [gluetun-qbittorrent](../gluetun-qbittorrent/). **Not visible in the task list on 2026-10-01**, though `start-stack.log` shows it ran on 2026-09-27. Check that it still exists. |
+| Boot-up task for `gluetun/start-stack.sh` | root | at boot | Described in [gluetun-qbittorrent](../gluetun-qbittorrent/). **Exists and works (checked 2026-10-05)**: it is a triggered task named "Start Gluetun stack" (Boot-up, enabled, runs `sh /volume1/docker/gluetun/start-stack.sh`) and last ran at 2026-09-27 09:44, one minute after the NAS booted. Triggered tasks are stored in `/usr/syno/etc/esynoscheduler/esynoscheduler.db`, not in the cron-style task list, so `synoschedtask --get` does not show them. |
 
 Notes Daily Copy script (user-defined script, run as `joost`):
 
@@ -85,9 +85,21 @@ DSM's own notifier is **not** usable for this: `synodsmnotify` only accepts pred
 
 ## Backups
 
-- **Hyper Backup to OK035** (remote Synology, reached over Tailscale at `100.74.138.41`, port 6281). Two repos, "Media Docker" and "Timemachine Homes", scheduled on Sundays as above. The source folders, retention and encryption settings are **not captured here**: they live in Hyper Backup's own store, which could not be read from SSH. Export or screenshot them from the Hyper Backup UI. The access policy that allows this traffic is in [tailscale-access](../tailscale-access/).
-- **Time Machine**: the `timemachine` share holds `joost.sparsebundle`; the Mac backs up to it over SMB.
-- **Not covered by anything found**: it is unknown whether `/volume1/docker` (all container config and the Immich database) is in a Hyper Backup source. Check this; without it, a lost volume loses every application's settings.
+**Hyper Backup to OK035** (remote Synology reached over Tailscale at `100.74.138.41`, port `6281`; settings read from the NAS on 2026-10-05). Two tasks, each with its own share on OK035, both writing to `OK040-DS255Plus_1.hbk`:
+
+| Task | Source folders | Share on OK035 | Backup / integrity check | Versions kept |
+|---|---|---|---|---|
+| Media Docker | `/audio`, `/books`, `/docker`, `/photo`, `/PlexMediaServer`, `/video` | `Backup C` | Sundays 12:15 / 21:00 | up to 20 (custom retention rule `[[0,2419200,1],[31536000,604800,1]]`, Hyper Backup's own encoding) |
+| Timemachine Homes | `/backup`, `/homes`, `/timemachine` | `Backup D` | Sundays 00:15 / 09:00 | up to 25 (same rule) |
+
+- **Results on 2026-10-04:** Media Docker finished at 17:28 (about 5 hours, 128,658 files scanned, about 766 GB at the target); Timemachine Homes at 00:58 (about 43 minutes, about 849 GB). Both integrity checks found no error. The warnings in the log are harmless: special files (qBittorrent's `ipc-socket`, a socket under `/volume1/homes/master`) and Time Machine bands that changed during the backup.
+- **Settings both share:** compression on, version rotation on, files deleted at the source are also deleted at the target. **Data encryption is off, transfer encryption is off and certificate verification is off**; the traffic travels inside Tailscale, but the data on OK035 is stored unencrypted.
+- **Failure notices probably go nowhere.** Notifications are enabled in the tasks, but DSM's own notification channel is not configured (empty SMTP settings, and Security Advisor's `enable_notification_v3` fails).
+- **The status page's "OK035 backup" is a recency proxy**, not a confirmed remote result (see [status-page](../status-page/)). The repositories show there as `Media Docker (Backup C)` and `Backup D`.
+- **`/volume1/docker` is backed up** (inside Media Docker), including Immich's library and database dumps; see [immich](../immich/) for what that does and does not protect.
+- **Restore has never been tested** and no procedure is recorded. OK035 must be online for any restore.
+- **OK035** is an ordinary Synology on the tailnet; on 2026-10-05 it was offline (last seen about 11 hours earlier). A plan to move it to another site is in `/volume1/docker/BACKUP-INFRA-TODO.md` on the NAS (an older note, partly stale). The access policy is in [tailscale-access](../tailscale-access/).
+- **Time Machine**: the `timemachine` share holds `joost.sparsebundle`; the Mac backs up to it over SMB. Hyper Backup then copies that share to OK035 (Timemachine Homes).
 
 ## Web Station homepage
 
@@ -116,6 +128,21 @@ Also on disk, not containers: `/volume1/docker/_scratch/genre-tagging` (one-off 
 A 79 MB crash dump `/volume1/@jellyfin.…core.gz` dates from 2026-09-27 (Jellyfin crashed then); it is safe to delete once nobody needs it.
 
 Images that remain on the NAS without a container: `ghcr.io/okkie2/brain-mcp` (7 old digests; its container is gone and its deploy script `~/brain-mcp-deploy/deploy.sh` was not found).
+
+## Docker logging
+
+Container Manager uses Synology's `db` log driver (`"log-driver": "db"` in `/var/packages/ContainerManager/etc/dockerd.json`): each container's log is a SQLite file `log.db` under `/volume1/@docker/containers/<id>/`. Sizes are small (the largest was 7 MB on 2026-10-05). **Watchtower's log stalled**: its last entry is 2026-10-01 11:42, and `docker logs watchtower` hangs (even `--tail 5`) while other containers answer in about a second. See [watchtower](../watchtower/) and [status-page](../status-page/).
+
+## Security Advisor (scan of 2026-10-04)
+
+No failures at danger or risk level; the status page shows 4 warnings, which are the checks that fail: `httpsEnableCheck` (DSM answers on plain HTTP), `usePort5000Check` and `usePort5001Check` (DSM still on its default ports), and `enable_notification_v3` (no notification channel configured). The built-in `admin` check passes.
+
+## Open items (2026-10-05)
+
+- [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
+- [ ] Improve the Immich backup (see [immich](../immich/#backups)).
+- [ ] Decide on encryption for the OK035 backups, and test a restore once.
+- [ ] Configure DSM notifications so a failed backup is seen.
 
 ## Rebuild order
 

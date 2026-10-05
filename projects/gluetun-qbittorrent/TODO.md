@@ -107,5 +107,6 @@ Readarr is retired and its image deprecated, so LazyLibrarian is used instead.
 
 - [x] Add the service to `docker-compose.yml` and create `/volume1/docker/lazylibrarian/config` on the NAS.
 - [x] Copy the Compose file to the NAS and start the service (done 2026-10-01, `up -d --no-deps lazylibrarian`; runs as uid 1028 because only `calibre` can write to `/volume1/books/Library`).
-- [ ] First setup in the UI (`:5299`): set a login; add qBittorrent (`gluetun:8080`) and Prowlarr; set the Calibredb import program to `/usr/bin/calibredb` and the library to `/books/Library`.
+- [x] First setup in the UI (`:5299`): login set, qBittorrent connected (`gluetun:8080`, category `books`), calibredb at `/usr/bin/calibredb`, library `/books/Library` (done 2026-10-01).
+- [x] Search providers: LazyLibrarian is a Prowlarr application with full sync; 6 indexers with book categories synced (2026-10-01).
 - [ ] Verify one real book is grabbed, imported into the Calibre library and visible in Calibre-Web.

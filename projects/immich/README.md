@@ -49,15 +49,16 @@ State on 2026-10-05:
 
 Gaps:
 
-1. **Weekly**: up to 7 days of newly uploaded photos exist only on the NAS.
-2. The live `postgres` data directory is copied as plain files while the database runs; such a copy may not restore cleanly. The dumps are the reliable copy.
-3. **One** off-site copy, stored unencrypted, on a single machine.
-4. No restore has ever been tried, and a failed backup produces no visible alert.
+1. **OK035 is only up on Sundays**, so the weekly run is the only off-disk copy and up to 7 days of newly uploaded photos exist only on the NAS.
+2. **OK040 has a single drive** (see [host](../host/#hardware-and-os)): every other copy on the NAS is on the same disk, so it protects against deleted or damaged files but not against a disk failure.
+3. The live `postgres` data directory is copied as plain files while the database runs; such a copy may not restore cleanly. The dumps are the reliable copy.
+4. The off-site copy is stored unencrypted, on a single machine, and no restore has ever been tried. A failed backup produces no visible alert.
 
-Recommended, not applied:
+Plan (owner's direction, 2026-10-05; **not yet applied**):
 
-- Give Immich its own Hyper Backup task **every night after the 02:00 dump** (for example 03:30), covering `/docker/immich/library` and the photo archive, so the weekly 5-hour Media Docker job is no longer what protects photos.
-- **Exclude `/docker/immich/postgres`** from backups and rely on the dumps.
-- Add a **second, encrypted off-site copy** of the library and dumps (about 119 GB): Hyper Backup with client-side encryption to a cloud target (Synology C2, Backblaze B2 or S3), keeping OK035 as the first copy.
+- Add a **daily Hyper Backup task on OK040** (for example 03:30, after the 02:00 dump) that copies `/docker/immich/library` (including `backups/`) into a local folder under `/volume1/backup/`, keeping about 14 versions. The existing weekly task **Timemachine Homes already includes `/backup`**, so the Sunday run carries the daily copy to OK035 (share `Backup D`) with no new remote task. Cost: roughly 120 GB more on OK035, because Media Docker also copies the Immich library.
+- **Exclude `/docker/immich/postgres`** from the local task (and consider it for Media Docker) and rely on the dumps.
+- Because the daily copy is on the same disk, add a **second physical copy** when affordable: a USB drive as a Hyper Backup target (daily), or a second internal disk for RAID1 (RAID is not a backup).
+- Optionally an **encrypted cloud copy** of the library and dumps (about 119 GB) for the days OK035 is off.
 - **Test one restore**: start a scratch Immich of the same pinned version, restore a dump following Immich's documentation, and compare photo counts; repeat after each Immich upgrade.
 - **Make failures visible**: configure DSM notifications or have the backup tasks call ntfy (see [host → Notifications](../host/#notifications-ntfy)).

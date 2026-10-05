@@ -8,7 +8,8 @@ Everything that is not a container but that the containers depend on. Captured r
 |---|---|
 | Model | Synology DS225+ (`synology_geminilakenk_ds225+`), hostname `OK040-DS255Plus` |
 | DSM | 7.4.1-90080, kernel 5.10.55+ |
-| Storage | One volume, `/volume1`, 7.0 TB (1.6 TB used on 2026-10-05). Spinning disks, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
+| Storage | One volume, `/volume1` (btrfs), 7.0 TB (1.6 TB used on 2026-10-05), on a **single drive**: WD Red 8 TB (`WD80EFPX`, CMR). The data array `md2` is a RAID1 with one member, **by choice (cost)**, so there is **no disk redundancy**: a dead disk loses the volume. DSM's system partitions show `[U_]` for the empty second bay. Spinning disk, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
+| Disk health (2026-10-05) | SMART PASSED; 1,784 power-on hours, 48 power cycles, 30 °C; zero reallocated, pending, offline-uncorrectable and CRC errors; error log empty. **No SMART self-test has ever been run**: schedule a quick test weekly and an extended one monthly (Storage Manager → HDD/SSD → Health Info → S.M.A.R.T. test). |
 | GPU | Intel QuickSync, `/dev/dri`. Jellyfin uses it; Immich transcoding is CPU only. |
 | SSH | Enabled; the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
 | Tailscale | Not the DSM package. The `tailscale-tailscale-1` container is the NAS's Tailscale node. See [tailscale-gateway](../tailscale-gateway/). |
@@ -98,7 +99,8 @@ DSM's own notifier is **not** usable for this: `synodsmnotify` only accepts pred
 - **The status page's "OK035 backup" is a recency proxy**, not a confirmed remote result (see [status-page](../status-page/)). The repositories show there as `Media Docker (Backup C)` and `Backup D`.
 - **`/volume1/docker` is backed up** (inside Media Docker), including Immich's library and database dumps; see [immich](../immich/) for what that does and does not protect.
 - **Restore has never been tested** and no procedure is recorded. OK035 must be online for any restore.
-- **OK035** is an ordinary Synology on the tailnet; on 2026-10-05 it was offline (last seen about 11 hours earlier). A plan to move it to another site is in `/volume1/docker/BACKUP-INFRA-TODO.md` on the NAS (an older note, partly stale). The access policy is in [tailscale-access](../tailscale-access/).
+- **OK035 is only powered up on Sundays**, which is why every backup and integrity check runs on Sundays and why it shows offline the rest of the week. Because OK040 has a single drive, this weekly copy is the **only copy that survives a disk failure**, so up to 7 days of changes can be lost.
+- **OK035** is an ordinary Synology on the tailnet. A plan to move it to another site is in `/volume1/docker/BACKUP-INFRA-TODO.md` on the NAS (an older note, partly stale). The access policy is in [tailscale-access](../tailscale-access/).
 - **Time Machine**: the `timemachine` share holds `joost.sparsebundle`; the Mac backs up to it over SMB. Hyper Backup then copies that share to OK035 (Timemachine Homes).
 
 ## Web Station homepage
@@ -140,7 +142,8 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 ## Open items (2026-10-05)
 
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
-- [ ] Improve the Immich backup (see [immich](../immich/#backups)).
+- [ ] Improve the Immich backup: daily local Hyper Backup into `/backup`, carried to OK035 by the Sunday run (see [immich](../immich/#backups)).
+- [ ] Schedule SMART self-tests; decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.
 - [ ] Configure DSM notifications so a failed backup is seen.
 

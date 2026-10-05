@@ -24,11 +24,15 @@ flowchart LR
     Prowlarr -->|syncs indexers| LL["LazyLibrarian"]
     Sonarr --> qBit
     Radarr --> qBit
+    Radarr -->|movie list| Bazarr
+    Sonarr -->|series list| Bazarr
     LL --> qBit
     LL -->|calibredb import| Lib[("Calibre library")]
     Lib --> CW["Calibre-Web"]
     Sonarr -->|imports episodes| TV[("TV Shows")]
     Radarr -->|imports films| Movies[("Movies")]
+    Bazarr -->|saves .srt files| Movies
+    Bazarr -->|saves .srt files| TV
     Immich
     Jellyfin
     Plex
@@ -46,7 +50,7 @@ flowchart LR
 | Project | What |
 |---|---|
 | [host](projects/host/) | DSM-level setup: hardware and disk health, users and UIDs, shared folders, **network and services**, **scheduled tasks**, **backups**, **notifications (ntfy)**, **automation outside Docker**, open items, rebuild order. **Start here to rebuild.** |
-| [gluetun-qbittorrent](projects/gluetun-qbittorrent/) | qBittorrent, Prowlarr, Sonarr, Radarr and LazyLibrarian; torrent traffic is routed through Gluetun with a hard kill switch; the Kindle EPUB check and `fix-epub`. |
+| [gluetun-qbittorrent](projects/gluetun-qbittorrent/) | qBittorrent, Prowlarr, Sonarr, Radarr, Bazarr and LazyLibrarian; torrent traffic is routed through Gluetun with a hard kill switch; the Kindle EPUB check and `fix-epub`. |
 | [calibre-web](projects/calibre-web/) | Calibre-Web front end for the Calibre library, kepubify workaround, email to Kindle. |
 | [immich](projects/immich/) | Immich photo management (four containers, version pinned) and its backup plan. |
 | [jellyfin](projects/jellyfin/) | Jellyfin media server, read-only alongside Plex: Music and Audiobooks. |
@@ -72,7 +76,7 @@ The gateway page `http://100.126.55.95/` (Tailscale address; the NAS's LAN addre
 | 8083 | Calibre-Web | LAN and Tailscale |
 | 5299 | LazyLibrarian | LAN and Tailscale |
 | 8080 | qBittorrent Web UI (published by Gluetun) | LAN and Tailscale |
-| 8989 / 7878 / 9696 | Sonarr / Radarr / Prowlarr | LAN and Tailscale |
+| 8989 / 7878 / 6767 / 9696 | Sonarr / Radarr / Bazarr / Prowlarr | LAN and Tailscale |
 | 8766 | Keeper | Tailscale address only |
 | 8000 | Gluetun control server | the NAS itself only |
 

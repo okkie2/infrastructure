@@ -24,7 +24,7 @@ Container Manager (Docker), Hyper Backup, Web Station, Plex Media Server, SMB Se
 |---|---|---|
 | `master` | 1026 | Admin account used over SSH; owns the Compose files in `/volume1/docker`. Jellyfin runs as `1026:100`. |
 | `calibre` | 1028 | Owns `/volume1/books`; Calibre-Web and LazyLibrarian run as this uid. |
-| `downloader` | 1031 | Runs qBittorrent, Prowlarr, Sonarr and Radarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent`, `/volume1/video/TV Shows` and `/volume1/video/Movies`. |
+| `downloader` | 1031 | Runs qBittorrent, Prowlarr, Sonarr, Radarr and Bazarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent`, `/volume1/video/TV Shows` and `/volume1/video/Movies`. |
 | `joost` | 1029 | Personal account (home, Notes). Keeper runs as `1029:100`. |
 | `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account and is **disabled** (expired; confirmed 2026-10-05, and Security Advisor's `disable_admin` check passes); `guest` is disabled too. |
 
@@ -118,11 +118,11 @@ Plex Media Server runs as a DSM package, not a container, with libraries on `/vo
 
 ## Containers that exist on the NAS
 
-15 containers in 6 Compose projects plus one GUI-created container (the Tailscale gateway).
+16 containers in 6 Compose projects plus one GUI-created container (the Tailscale gateway).
 
 | Project | Containers | Folder in this repo |
 |---|---|---|
-| `gluetun-qbittorrent` | gluetun, qbittorrent, prowlarr, sonarr, radarr, lazylibrarian | [gluetun-qbittorrent](../gluetun-qbittorrent/) |
+| `gluetun-qbittorrent` | gluetun, qbittorrent, prowlarr, sonarr, radarr, bazarr, lazylibrarian | [gluetun-qbittorrent](../gluetun-qbittorrent/) |
 | `calibre-web` | calibre-web | [calibre-web](../calibre-web/) |
 | `immich` | immich_server, immich_machine_learning, immich_postgres, immich_redis | [immich](../immich/) |
 | `jellyfin` | jellyfin | [jellyfin](../jellyfin/) |
@@ -144,7 +144,7 @@ Checked on the NAS on 2026-10-05; no passwords or keys are recorded here.
 - **Break-glass if the key is lost:** log into DSM in the browser as `master` and run the Task Scheduler task **SSH rescue** (a disabled triggered task, owner root, which sets `PasswordAuthentication yes` again and restarts `sshd`). It was test-run on 2026-10-05 (exit code 0). Never enable it: as a boot-up trigger it would switch password login back on at every boot. Another route is a one-off root script that appends a new public key to `authorized_keys`. Only members of the `administrators` group can use SSH on DSM; that group holds `master` and the disabled `admin`.
 - **Admin access:** `master` (uid 1026) is the working admin account and has `sudo` without a password. `joost` is the personal account and is not an administrator. The service accounts (`calibre`, `downloader`) exist to own files and run containers; see the Users table above.
 - **Port forwarding:** DSM's own UPnP/port-forwarding list is empty and QuickConnect is off. The router's configuration is not visible from the NAS and is not recorded.
-- **Where credentials live:** each application's own login (qBittorrent, Prowlarr, Sonarr, LazyLibrarian, Calibre-Web, Jellyfin, Immich); see Secrets below for the files. Radarr has a Forms login (username `admin`, password in the password manager).
+- **Where credentials live:** each application's own login (qBittorrent, Prowlarr, Sonarr, Bazarr, LazyLibrarian, Calibre-Web, Jellyfin, Immich); see Secrets below for the files. Radarr has a Forms login (username `admin`, password in the password manager).
 
 ## Network and services
 
@@ -171,7 +171,7 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 | 512 | termd | 127.0.0.1 | DSM terminal service |
 | 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI); it has no targets or LUNs, but its ports listen on every interface. It is DSM's built-in **SAN Manager**, a system package that DSM does not let you stop or uninstall. |
 | 5432 | postgres | 127.0.0.1 | DSM's own database, not Immich's |
-| 2283, 5299, 7878, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, Radarr, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
+| 2283, 5299, 6767, 7878, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, Bazarr, Radarr, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
 | 8766 | docker-proxy | `100.126.55.95` | Keeper, Tailscale only |
 | 8000 | docker-proxy | 127.0.0.1 | Gluetun control server |
 | 32400 | Plex Media Server | all | Plex; 32401, 32600 and the "Plex Script Host" ports are local |

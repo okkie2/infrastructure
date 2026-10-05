@@ -101,6 +101,24 @@ services:
     ports:
       - "7878:7878"                   # Radarr Web UI, same published-port pattern as existing apps
 
+  # Subtitle manager. Reads the movie and series lists from Radarr and Sonarr and saves .srt files
+  # next to the video files, so it needs write access to /movies and /tv. Not behind Gluetun.
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      - PUID=1031                     # downloader
+      - PGID=100                      # users
+      - UMASK=002
+      - TZ=Europe/Amsterdam
+    volumes:
+      - /volume1/docker/bazarr/config:/config
+      - /volume1/video/Movies:/movies
+      - "/volume1/video/TV Shows:/tv"
+    ports:
+      - "6767:6767"                   # Bazarr Web UI, same published-port pattern as existing apps
+
   # Book manager (Readarr is retired). Not behind Gluetun. Imports finished books into the
   # existing Calibre library with calibredb, which Calibre-Web serves from the same folder.
   lazylibrarian:

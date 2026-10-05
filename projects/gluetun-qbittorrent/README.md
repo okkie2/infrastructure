@@ -1,6 +1,6 @@
 # synology-nas
 
-Configuration and notes for running **qBittorrent**, **Prowlarr**, **Sonarr**, **Radarr** and **LazyLibrarian** on a Synology DS225+ (DSM 7.4, Container Manager). Torrent traffic goes through a VPN and **stops completely if the VPN fails**; Sonarr manages the existing TV library and Radarr the existing movie library.
+Configuration and notes for running **qBittorrent**, **Prowlarr**, **Sonarr**, **Radarr**, **Bazarr** and **LazyLibrarian** on a Synology DS225+ (DSM 7.4, Container Manager). Torrent traffic goes through a VPN and **stops completely if the VPN fails**; Sonarr manages the existing TV library and Radarr the existing movie library.
 
 ```
 qBittorrent ──► Gluetun ──► WireGuard ──► AirVPN (Netherlands) ──► Internet
@@ -8,6 +8,7 @@ qBittorrent ──► Gluetun ──► WireGuard ──► AirVPN (Netherlands)
 Prowlarr ─────────┘  (talks to qBittorrent's Web UI at gluetun:8080; itself not behind the VPN)
 Sonarr (8989) ───────► /tv (existing Plex TV library)
 Radarr (7878) ───────► /movies (existing Plex Movies library)
+Bazarr (6767) ───────► subtitles next to the files in /movies and /tv (reads lists from Radarr and Sonarr)
 ```
 
 It is written for one household NAS, not as a reusable product. The repo holds the Compose project, a kill-switch test and the working notes; the containers and their data live on the NAS.
@@ -21,6 +22,7 @@ It is written for one household NAS, not as a reusable product. The repo holds t
 - **Persistence.** Settings live in `/volume1/docker/<service>/config`; downloads go to the normal shared folder `/volume1/download/qbittorrent`. Both survive restarts and image updates.
 - **Boot start.** `scripts/start-stack.sh` is run by a DSM Task Scheduler boot-up task (as root): it waits for Docker, then runs `docker compose -p gluetun-qbittorrent up -d --no-recreate`. It exists because Container Manager skipped qBittorrent after a reboot (it had exited 137). Copy it to `/volume1/docker/gluetun/start-stack.sh`; the task exists ("Start Gluetun stack", checked 2026-10-05) and ran at the 2026-09-27 boot; it is a triggered task, so it is stored in `esynoscheduler.db` and is not in the cron-style list (see [host](../host/#scheduled-tasks-control-panel--task-scheduler)).
 - **Radarr deployed** (2026-10-05) next to Sonarr; see [Radarr (movies)](#radarr-movies).
+- **Bazarr deployed** (2026-10-05) for subtitles; see [Bazarr (subtitles)](#bazarr-subtitles).
 - **Book manager.** LazyLibrarian (port 5299) runs in the same project; see the Configuration table.
 - **Fallback.** `projects/gluetun-qbittorrent/docker-compose.nordvpn.yml` is the previous NordVPN setup (no port forwarding).
 
@@ -69,11 +71,12 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
 | Stack definition | `docker-compose.yml` (project `gluetun-qbittorrent`) |
 | Secrets (WireGuard keys, address) | `/volume1/docker/gluetun/.env` on the NAS, mode 600; template in `.env.example` |
 | Forwarded port | `FIREWALL_VPN_INPUT_PORTS` in the Compose file, and qBittorrent's listening port (`Session\Port`); both must equal the port reserved at AirVPN |
-| Web UIs | qBittorrent `http://<nas>:8080`, Prowlarr `http://<nas>:9696`, Sonarr `http://<nas>:8989`, Radarr `http://<nas>:7878` (same published-port pattern as existing apps) |
-| Service config | `/volume1/docker/qbittorrent/config`, `/volume1/docker/prowlarr/config`, `/volume1/docker/sonarr/config`, `/volume1/docker/radarr/config` |
+| Web UIs | qBittorrent `http://<nas>:8080`, Prowlarr `http://<nas>:9696`, Sonarr `http://<nas>:8989`, Radarr `http://<nas>:7878`, Bazarr `http://<nas>:6767` (same published-port pattern as existing apps) |
+| Service config | `/volume1/docker/qbittorrent/config`, `/volume1/docker/prowlarr/config`, `/volume1/docker/sonarr/config`, `/volume1/docker/radarr/config`, `/volume1/docker/bazarr/config` |
 | Downloads | `/volume1/download/qbittorrent` (files are group-writable: `UMASK=002`) |
 | LazyLibrarian (deployed; runs as uid 1028 `calibre` for write access to the library) | `http://<nas>:5299`; config `/volume1/docker/lazylibrarian/config`; Calibre library `/books/Library` (NAS `/volume1/books/Library`); set Processing → Calibredb import program to `/usr/bin/calibredb` |
 | Sonarr paths | `/downloads` for qBittorrent downloads; `/tv` for the existing `/volume1/video/TV Shows` library |
+| Bazarr paths | `/movies` for `/volume1/video/Movies` and `/tv` for `/volume1/video/TV Shows`, both writable, so subtitles are saved next to the video files |
 | Radarr paths | `/downloads` for qBittorrent downloads; `/movies` for the existing `/volume1/video/Movies` library |
 
 ## Operating it
@@ -106,6 +109,22 @@ Deployed on **2026-10-05** as the movie counterpart of Sonarr, in the same Compo
 Folder creation (only for a rebuild): `ssh ok040 'mkdir -p /volume1/docker/radarr/config && sudo chown -R downloader:users /volume1/docker/radarr && sudo chmod -R 775 /volume1/docker/radarr'`. Then deploy with `cd /volume1/docker/gluetun && sudo docker compose -p gluetun-qbittorrent up -d --no-deps radarr`. Radarr is not in Watchtower's list, so update it by hand.
 
 Radarr can write to, rename and delete files in the Plex library, so be careful with its "Library Import" and "Delete" actions; Plex pickup of newly imported films has not been verified.
+
+## Bazarr (subtitles)
+
+Deployed on **2026-10-05** as the subtitle companion of Radarr and Sonarr, in the same Compose project (`bazarr`, `lscr.io/linuxserver/bazarr:latest`, port `6767`, runs as uid 1031 `downloader`, config in `/volume1/docker/bazarr/config`). It reads the movie and series lists from Radarr and Sonarr through their APIs and saves `.srt` files next to the video files, where Plex and Jellyfin pick them up.
+
+| Item | Value |
+|---|---|
+| Library | `/volume1/video/Movies` is mounted at `/movies` and `/volume1/video/TV Shows` at `/tv`, both writable (the same paths Radarr and Sonarr use, so no path mapping is needed). |
+| Sync | Bazarr's own sync option (ffsubsync) retimes a subtitle against the audio; it fixes a constant offset or frame-rate drift, not a subtitle from a different cut. |
+| Login | **None yet.** Bazarr is open to anyone on the LAN or tailnet until a login is set (Settings → General → Security). |
+| Configuration | **Not done yet.** Still to do in its UI: link Radarr (`http://radarr:7878`) and Sonarr (`http://sonarr:8989`) with their API keys, add subtitle providers (an OpenSubtitles account avoids the daily limit), and create a language profile. |
+| Homepage | A Bazarr tile sits next to Radarr on the gateway page. |
+
+Folder creation (only for a rebuild): `ssh ok040 'mkdir -p /volume1/docker/bazarr/config && sudo chown -R downloader:users /volume1/docker/bazarr && sudo chmod -R 775 /volume1/docker/bazarr'`. Then deploy with `cd /volume1/docker/gluetun && sudo docker compose -p gluetun-qbittorrent up -d --no-deps bazarr`. Bazarr is not in Watchtower's list, so update it by hand.
+
+Bazarr writes `.srt` files into the Plex and Jellyfin libraries; it does not touch the video files.
 
 ## LazyLibrarian: from download to Calibre-Web and the Kindle
 

@@ -113,6 +113,13 @@ Readarr is retired and its image deprecated, so LazyLibrarian is used instead.
 - [ ] Watch `kindle-check.log` for the first real import, and revisit the 1,000-file threshold once more bad EPUBs are known.
 - [ ] Mark the wanted books as `Wanted` in LazyLibrarian (879 of 921 are `Skipped`, so almost nothing is searched).
 
+## Bazarr (deployed 2026-10-05)
+
+- [x] Add the service to `docker-compose.yml`, create `/volume1/docker/bazarr/config` and start it.
+- [ ] **Set a Bazarr login** (Settings → General → Security): it currently has none.
+- [ ] Link Radarr and Sonarr (`http://radarr:7878`, `http://sonarr:8989`, with their API keys), add subtitle providers (OpenSubtitles account) and a language profile, and turn on subtitle sync.
+- [ ] Verify one movie gets a subtitle that is in sync in Plex or Jellyfin.
+
 ## Radarr (deployed 2026-10-05)
 
 - [x] Add the service to `docker-compose.yml`, create `/volume1/docker/radarr/config`, start it, and add the `/movies` root folder, the qBittorrent client and the Prowlarr application.

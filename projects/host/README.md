@@ -142,7 +142,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 ## Open items (2026-10-05)
 
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
-- [ ] Improve the Immich backup: daily local Hyper Backup into `/backup`, carried to OK035 by the Sunday run (see [immich](../immich/#backups)).
+- [ ] Improve the Immich backup: install Snapshot Replication and take daily snapshots of `docker` and `photo` (see [immich](../immich/#backups)).
 - [ ] Schedule SMART self-tests; decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.
 - [ ] Configure DSM notifications so a failed backup is seen.

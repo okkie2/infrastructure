@@ -64,6 +64,25 @@ mv "$tmp" "$snapshot"
 find "$backup_root" -mindepth 1 -maxdepth 1 -type d -name 'Notes-????-??-??_??????' -print | sort -r | awk 'NR > 8' | while IFS= read -r old; do rm -rf -- "$old"; done
 ```
 
+## Notifications (ntfy)
+
+One mechanism sends alerts to the phone: **ntfy** on the public server `ntfy.sh`, with one private topic that the ntfy app on the phone is subscribed to. The topic is the only secret, because anyone who knows it can read and publish. It is not stored in this repo; the real value is in the NAS copy of the Watchtower Compose file (and a note in `/volume1/docker/BACKUP-INFRA-TODO.md`).
+
+| Sender | How | Message |
+|---|---|---|
+| [watchtower](../watchtower/) | Shoutrrr URL `ntfy://ntfy.sh/<topic>` in `WATCHTOWER_NOTIFICATION_URL` | "Watchtower: updated …" or "FAILED updating …" |
+| [kindle-check.py](../gluetun-qbittorrent/README.md#kindle-epub-check-warn-only-pre-process-hook) (LazyLibrarian hook) | HTTPS POST to the topic, URL read from `kindle-check.conf` | Title "Kindle delivery risk: EPUB badly split" |
+
+To send from any new script, POST to the topic with a distinct title so the senders can be told apart:
+
+```sh
+curl -s -m 10 -H "Title: <what raised it>" -H "Tags: warning" -d "<message>" "https://ntfy.sh/<topic>"
+```
+
+HTTP 200 with a JSON `message` event means ntfy accepted it. Keep the call short-timed and never let a failed alert fail the job that raised it.
+
+DSM's own notifier is **not** usable for this: `synodsmnotify` only accepts predefined DSM message keys (a free-text title is rejected), and DSM's email notification is not configured on this NAS (empty SMTP settings). Verified 2026-10-05.
+
 ## Backups
 
 - **Hyper Backup to OK035** (remote Synology, reached over Tailscale at `100.74.138.41`, port 6281). Two repos, "Media Docker" and "Timemachine Homes", scheduled on Sundays as above. The source folders, retention and encryption settings are **not captured here**: they live in Hyper Backup's own store, which could not be read from SSH. Export or screenshot them from the Hyper Backup UI. The access policy that allows this traffic is in [tailscale-access](../tailscale-access/).
@@ -116,4 +135,6 @@ Images that remain on the NAS without a container: `ghcr.io/okkie2/brain-mcp` (7
 | `/volume1/docker/keeper-managed/.env` | `KEEPER_TOKEN` |
 | Tailscale gateway container | `TS_AUTHKEY` |
 | Watchtower compose | ntfy topic name (treated as private) |
+| `/volume1/docker/lazylibrarian/config/kindle-check.conf` | `NTFY_URL` (the same ntfy topic); git-ignored, mode 640 |
+| Calibre-Web (Admin → Email Server Settings) | Infomaniak device password "Calibre-Web" for sending to the Kindle |
 | Each app's own UI | admin logins for qBittorrent, Prowlarr, Sonarr, LazyLibrarian, Calibre-Web, Jellyfin, Immich |

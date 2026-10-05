@@ -87,6 +87,50 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
 
 - **Fall back to NordVPN:** from the repository root, run `ssh ok040 'cat > /volume1/docker/gluetun/docker-compose.yml' < projects/gluetun-qbittorrent/docker-compose.nordvpn.yml`, set qBittorrent's listening port back to 6881 and rebuild. NordVPN offers no forwarded port, so seeding stalls.
 
+## LazyLibrarian: from download to Calibre-Web and the Kindle
+
+Path of a book: Prowlarr (Torznab feeds) → LazyLibrarian search → qBittorrent (category `books`) → LazyLibrarian post-processor (every 10 minutes) → `calibredb` import into `/books/Library` → [Calibre-Web](../calibre-web/) → email to the Kindle (see its README). Verified end to end on 2026-10-02 (import) and 2026-10-05 (Kindle delivery).
+
+Things learned while running it (2026-10-02 to 2026-10-05):
+
+- **LazyLibrarian only searches books with status `Wanted`.** Importing an author adds every edition as `Skipped` (879 of 921 books on 2026-10-02), including sheet music and translations, so mark just the titles you want as Wanted. Searching "returns no results" for the rest is expected.
+- **qBittorrent's queue can silently stall.** With its default of 3 active downloads, three dead torrents (state `stalledDL`, 0 seeds) blocked every other torrent, including Sonarr's, which sat in `queuedDL` at 0%. Set on 2026-10-02 in Options → BitTorrent: max active downloads 16, uploads 8, torrents 8, and "Do not count slow torrents" ticked. Remove dead torrents by hand.
+- **Audiobook releases get picked for eBooks.** LazyLibrarian rejects them ("contains audiobook files instead of ebook", status `Failed`) but does not delete a torrent it did not add itself, so the torrent stays in qBittorrent.
+- **OpenLibrary is blocked for 1 hour** after a burst of author imports (about 15 lookups). `blocked_providers.json` keeps the old entry after it expires; it has no effect then.
+- **The EBookBay indexer (`ebb.la`) cannot be added to Prowlarr.** The site serves a certificate for `audiobookbay.lu`, so Prowlarr reports `RemoteCertificateNameMismatch`. DNS, VPN and FlareSolverr do not fix a wrong server certificate.
+- **Docker needs `sudo` over SSH:** `sudo -n /usr/local/bin/docker …` works without a password. `calibredb` and `ebook-convert` exist inside the `lazylibrarian` container (from the `universal-calibre` mod).
+
+### Kindle EPUB check (warn-only pre-process hook)
+
+Amazon accepted but never delivered one EPUB: *A Fire Upon the Deep* (public-tracker release) is stored as **1,581 tiny HTML files**. Calibre rebuilt it to 21 and Amazon then delivered it. LazyLibrarian can run a script on every download before import (`EXT_PREPROCESS`); [`scripts/kindle-check.py`](scripts/kindle-check.py) counts an EPUB's spine items and sends an ntfy alert (see [Notifications](../host/README.md#notifications-ntfy)) when there are more than **1,000**. It never modifies or blocks anything and always exits 0.
+
+| Item | Value |
+|---|---|
+| Script on the NAS | `/volume1/docker/lazylibrarian/config/kindle-check.py` (container path `/config/kindle-check.py`), mode 755 |
+| Alert target | `kindle-check.conf` next to it, mode 640, one line `NTFY_URL=https://ntfy.sh/<topic>`; template [`scripts/kindle-check.conf.example`](scripts/kindle-check.conf.example). Never committed (`*.conf` is git-ignored). |
+| Log | `/volume1/docker/lazylibrarian/config/log/kindle-check.log` (one line per EPUB checked; does not rotate) |
+| Enabled by | LazyLibrarian config `[General] ext_preprocess = /config/kindle-check.py` (set 2026-10-05 through LazyLibrarian's API, `cmd=writeCFG&name=EXT_PREPROCESS&group=General`, so no restart); backup `config.ini.bak-20261005-preprocess` |
+| Threshold | 1,000 spine items. A guess: a 568-item omnibus delivered fine, the 1,581-item book failed. In 51 library EPUBs the median is 33 and only 5 exceed 100. Adjust `THRESHOLD` once more cases are known. |
+
+Install:
+
+```sh
+ssh ok040 'cat > /volume1/docker/lazylibrarian/config/kindle-check.py' < projects/gluetun-qbittorrent/scripts/kindle-check.py
+ssh ok040 'chmod 755 /volume1/docker/lazylibrarian/config/kindle-check.py'
+# create kindle-check.conf from the example, then set the option (key from [API] in config.ini):
+curl "http://<nas>:5299/api?apikey=<key>&cmd=writeCFG&name=EXT_PREPROCESS&group=General&value=/config/kindle-check.py"
+```
+
+Test: run it inside the container as LazyLibrarian's user against an EPUB folder, `sudo -n docker exec -u abc lazylibrarian /config/kindle-check.py eBook <folder> <author> <title>`. Expect a log line, and an ntfy message only above the threshold.
+
+**To switch it off, clear the option first** (`value=` empty). If the script file is removed while the option is still set, LazyLibrarian treats the missing script as a failure and **rejects every import** ("PreProcessor returned 1").
+
+### Rebuilding a bad EPUB (`fix-epub`, run on the Mac)
+
+[`scripts/fix-epub`](scripts/fix-epub) is the manual cure: `fix-epub <calibre-book-id> [--dry-run]` (install it as `~/bin/fix-epub`). It fetches the book's EPUB over SSH, rebuilds it with the Mac's Calibre (EPUB → HTMLZ → EPUB with `--dont-split-on-page-breaks --chapter-mark none`, which merges the fragments), refuses to continue unless the file count drops, keeps the original in `/volume1/docker/_scratch/epub-backup/` on the NAS, and adds the rebuilt EPUB with `calibredb add_format`. It takes seconds on the Mac and minutes on the NAS, which is why it runs on the Mac. The book id is the number in the Calibre-Web URL (and in the folder name, `Title (120)`). `--dry-run` writes the result to `~/Downloads` and leaves the library alone. Tested 2026-10-05: book 51 (568 files) → 66 in 36 s, dry run. The write path was not re-run as a script; it is the same commands that were run by hand for book 120.
+
+Calibre's plain EPUB → EPUB conversion does **not** help: it keeps the fragments.
+
 ## Limits and known trade-offs
 
 - **qBittorrent's CSRF protection is switched off** (Options → Web UI). With it on, qBittorrent answers "Unauthorized" to any link that arrives from another page, such as the gateway page. Login is still required; the exposure is a malicious page acting through your logged-in browser session. The tiles use `rel="noreferrer"`.

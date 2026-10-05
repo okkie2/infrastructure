@@ -109,4 +109,6 @@ Readarr is retired and its image deprecated, so LazyLibrarian is used instead.
 - [x] Copy the Compose file to the NAS and start the service (done 2026-10-01, `up -d --no-deps lazylibrarian`; runs as uid 1028 because only `calibre` can write to `/volume1/books/Library`).
 - [x] First setup in the UI (`:5299`): login set, qBittorrent connected (`gluetun:8080`, category `books`), calibredb at `/usr/bin/calibredb`, library `/books/Library` (done 2026-10-01).
 - [x] Search providers: LazyLibrarian is a Prowlarr application with full sync; 6 indexers with book categories synced (2026-10-01).
-- [ ] Verify one real book is grabbed, imported into the Calibre library and visible in Calibre-Web.
+- [x] Verify one real book is grabbed, imported into the Calibre library and visible in Calibre-Web (done 2026-10-02, *The Ghost Writer*; Kindle delivery verified 2026-10-05).
+- [ ] Watch `kindle-check.log` for the first real import, and revisit the 1,000-file threshold once more bad EPUBs are known.
+- [ ] Mark the wanted books as `Wanted` in LazyLibrarian (879 of 921 are `Skipped`, so almost nothing is searched).

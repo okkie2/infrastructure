@@ -7,7 +7,7 @@ Reports on, and for a few containers applies, image updates. Uses the maintained
 | Container | `watchtower`, project `watchtower` in `/volume1/docker/watchtower` |
 | Compose file | [`docker-compose.yml`](docker-compose.yml). The ntfy topic is replaced by a placeholder; the real topic is in the NAS copy. |
 | Schedule | Every 6 hours (`WATCHTOWER_POLL_INTERVAL=21600`) |
-| Notifications | ntfy via Shoutrrr, sent only when something was updated or failed. Pick a hard-to-guess topic and subscribe to it in the ntfy app. |
+| Notifications | ntfy via Shoutrrr, sent only when something was updated or failed. Pick a hard-to-guess topic and subscribe to it in the ntfy app. The same topic is shared with other senders; see [host → Notifications](../host/README.md#notifications-ntfy). |
 | Log level | `debug`, needed so `status-page` can read per-container update status from `docker logs` |
 
 ## Which containers it touches

@@ -144,7 +144,7 @@ Checked on the NAS on 2026-10-05; no passwords or keys are recorded here.
 - **Break-glass if the key is lost:** log into DSM in the browser as `master` and run the Task Scheduler task **SSH rescue** (a disabled triggered task, owner root, which sets `PasswordAuthentication yes` again and restarts `sshd`). It was test-run on 2026-10-05 (exit code 0). Never enable it: as a boot-up trigger it would switch password login back on at every boot. Another route is a one-off root script that appends a new public key to `authorized_keys`. Only members of the `administrators` group can use SSH on DSM; that group holds `master` and the disabled `admin`.
 - **Admin access:** `master` (uid 1026) is the working admin account and has `sudo` without a password. `joost` is the personal account and is not an administrator. The service accounts (`calibre`, `downloader`) exist to own files and run containers; see the Users table above.
 - **Port forwarding:** DSM's own UPnP/port-forwarding list is empty and QuickConnect is off. The router's configuration is not visible from the NAS and is not recorded.
-- **Where credentials live:** each application's own login (qBittorrent, Prowlarr, Sonarr, LazyLibrarian, Calibre-Web, Jellyfin, Immich); see Secrets below for the files. Radarr has a Forms login (username `joost`, password in the password manager).
+- **Where credentials live:** each application's own login (qBittorrent, Prowlarr, Sonarr, LazyLibrarian, Calibre-Web, Jellyfin, Immich); see Secrets below for the files. Radarr has a Forms login (username `admin`, password in the password manager).
 
 ## Network and services
 

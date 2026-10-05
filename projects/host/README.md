@@ -11,7 +11,7 @@ Everything that is not a container but that the containers depend on. Captured r
 | Storage | One volume, `/volume1` (btrfs), 7.0 TB (1.6 TB used on 2026-10-05), on a **single drive**: WD Red 8 TB (`WD80EFPX`, CMR). The data array `md2` is a RAID1 with one member, **by choice (cost)**, so there is **no disk redundancy**: a dead disk loses the volume. DSM's system partitions show `[U_]` for the empty second bay. Spinning disk, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
 | Disk health (2026-10-05) | SMART PASSED; 1,784 power-on hours, 48 power cycles, 30 °C; zero reallocated, pending, offline-uncorrectable and CRC errors; error log empty. No SMART self-test had ever been run before 2026-10-05; two short tests since then completed without error, and weekly quick and monthly extended tests are now scheduled (see Scheduled tasks). |
 | GPU | Intel QuickSync, `/dev/dri`. Jellyfin uses it; Immich transcoding is CPU only. |
-| SSH | Enabled on **port 9022** (`ssh ok040`), password login allowed; the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
+| SSH | Enabled on **port 9022** (`ssh ok040`), **key-only** since 2026-10-05 (see Access and accounts); the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
 | Tailscale | Not the DSM package. The `tailscale-tailscale-1` container is the NAS's Tailscale node. See [tailscale-gateway](../tailscale-gateway/). |
 
 ## Packages installed (Package Center)
@@ -49,6 +49,7 @@ Permissions are partly Synology ACLs (the `+` in `ls -l`), which a plain `chmod`
 | Task 7 / Task 8 | root | 1st of the month 00:00 / daily 00:00 | `securityadvisorreport monthly 1` / `securityadvisorreport daily 1` (Synology defaults). |
 | SMART Quicktest | root | Saturdays 01:00 | `/usr/bin/smartctl -d sat -t short /dev/sata1` (about 2 minutes). Added 2026-10-05. |
 | SMART Extended test | root | first Saturday of the month, 02:00 | `/usr/bin/smartctl -d sat -t long /dev/sata1` (about 13 hours; the drive estimates 784 minutes). Added 2026-10-05; the first run was started by hand at 15:51 that day. Read results with `sudo smartctl -d sat -l selftest /dev/sata1`. |
+| SSH rescue | root | triggered (boot-up), **disabled**; run by hand only | `sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && /usr/syno/bin/synosystemctl restart sshd`. Undoes the key-only SSH setting. |
 | Boot-up task for `gluetun/start-stack.sh` | root | at boot | Described in [gluetun-qbittorrent](../gluetun-qbittorrent/). **Exists and works (checked 2026-10-05)**: it is a triggered task named "Start Gluetun stack" (Boot-up, enabled, runs `sh /volume1/docker/gluetun/start-stack.sh`) and last ran at 2026-09-27 09:44, one minute after the NAS booted. Triggered tasks are stored in `/usr/syno/etc/esynoscheduler/esynoscheduler.db`, not in the cron-style task list, so `synoschedtask --get` does not show them. |
 
 Notes Daily Copy script (user-defined script, run as `joost`):
@@ -139,7 +140,8 @@ Images that remain on the NAS without a container: `ghcr.io/okkie2/brain-mcp` (7
 
 Checked on the NAS on 2026-10-05; no passwords or keys are recorded here.
 
-- **SSH** listens on **port 9022** on every interface (LAN and Tailscale). Password login is allowed (`PasswordAuthentication yes`), and `master` has **one** key in `~/.ssh/authorized_keys`. Moving to key-only login would be safer; test the key login in a second terminal before changing it, and note that DSM can overwrite `sshd_config` on updates. Only members of the `administrators` group can use SSH on DSM; that group holds `master` and the disabled `admin`.
+- **SSH** listens on **port 9022** on every interface (LAN and Tailscale). Since **2026-10-05 it is key-only** (`PasswordAuthentication no` in `/etc/ssh/sshd_config`, original saved as `sshd_config.bak-20261005`), and `master` has **one** key in `~/.ssh/authorized_keys` (the key has no passphrase, so logins prompt for nothing). Verified after the change: a new key login works with `sudo`, and a password login is refused (`Permission denied (publickey)`). DSM can overwrite `sshd_config` on updates or when SSH settings are changed in Control Panel → Terminal & SNMP, so after either run `grep ^PasswordAuthentication /etc/ssh/sshd_config`.
+- **Break-glass if the key is lost:** log into DSM in the browser as `master` and run the Task Scheduler task **SSH rescue** (a disabled triggered task, owner root, which sets `PasswordAuthentication yes` again and restarts `sshd`). It was test-run on 2026-10-05 (exit code 0). Never enable it: as a boot-up trigger it would switch password login back on at every boot. Another route is a one-off root script that appends a new public key to `authorized_keys`. Only members of the `administrators` group can use SSH on DSM; that group holds `master` and the disabled `admin`.
 - **Admin access:** `master` (uid 1026) is the working admin account and has `sudo` without a password. `joost` is the personal account and is not an administrator. The service accounts (`calibre`, `downloader`) exist to own files and run containers; see the Users table above.
 - **Port forwarding:** DSM's own UPnP/port-forwarding list is empty and QuickConnect is off. The router's configuration is not visible from the NAS and is not recorded.
 - **Where credentials live:** each application's own login (qBittorrent, Prowlarr, Sonarr, LazyLibrarian, Calibre-Web, Jellyfin, Immich); see Secrets below for the files.
@@ -216,7 +218,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
 - [ ] Immich backup: add a third copy (USB drive and/or encrypted cloud) and test one restore (see [immich](../immich/#backups)). Snapshot Replication is optional.
-- [ ] Decide whether the DSM firewall should get a deny rule (recommended rule set under Network and services), and whether SSH should become key-only. ScsiTarget cannot be removed (system package).
+- [ ] Decide whether the DSM firewall should get a deny rule (recommended rule set under Network and services), and ScsiTarget cannot be removed (system package).
 - [ ] Read the result of the first extended SMART test (started 2026-10-05 15:51, due about 05:00 the next morning).
 - [ ] Decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.

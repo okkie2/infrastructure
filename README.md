@@ -61,7 +61,7 @@ The gateway page `http://100.126.55.95/` (Tailscale address; the NAS's LAN addre
 |---|---|---|
 | 80 / 443 | Web Station homepage (nginx) | LAN and Tailscale |
 | 5000 / 5001 | DSM (HTTP / HTTPS) | LAN and Tailscale |
-| 9022 | SSH (`ssh ok040`; password login is allowed) | LAN and Tailscale |
+| 9022 | SSH (`ssh ok040`; **key-only**) | LAN and Tailscale |
 | 445 / 139 | SMB (shares, Time Machine) | LAN and Tailscale |
 | 32400 | Plex | LAN and Tailscale |
 | 8096 | Jellyfin | LAN and Tailscale |
@@ -97,7 +97,7 @@ All times are the NAS's local time (Europe/Amsterdam). Detail and the scripts ar
 
 ## Access and accounts
 
-Admin work happens over **SSH on port 9022** as `master` (key login; password login is also allowed) and in DSM on port 5000; both are reachable from the LAN and over Tailscale, and nothing is forwarded from the internet (QuickConnect is off, no UPnP forwards). The built-in `admin` and `guest` accounts are disabled; `joost` is the personal account; `calibre` and `downloader` are service accounts whose UIDs the containers rely on. Details: [host → Access and accounts](projects/host/README.md#access-and-accounts) and [host → Users](projects/host/README.md#users).
+Admin work happens over **SSH on port 9022** as `master` (key login only; if the key is lost, DSM's Task Scheduler has a rescue task) and in DSM on port 5000; both are reachable from the LAN and over Tailscale, and nothing is forwarded from the internet (QuickConnect is off, no UPnP forwards). The built-in `admin` and `guest` accounts are disabled; `joost` is the personal account; `calibre` and `downloader` are service accounts whose UIDs the containers rely on. Details: [host → Access and accounts](projects/host/README.md#access-and-accounts) and [host → Users](projects/host/README.md#users).
 
 ## Backups, in one paragraph
 

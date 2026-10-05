@@ -20,7 +20,13 @@ Immich is monitor-only because its database migrations are one-way, and `IMMICH_
 
 ## Known problem (2026-10-05)
 
-Watchtower's log stopped being written on **2026-10-01 11:42** (last line: "Scheduled next run: 17:42:58"), although the container stays "Up (healthy)". `docker logs watchtower` hangs, even with `--tail 5`, while other containers answer in about a second. The log is only 4 MB in Synology's `db` log driver (see [host → Docker logging](../host/#docker-logging)), so size is not the cause. Consequences: the status page shows Watchtower as "unknown", and whether it still checks for updates every 6 hours is unconfirmed.
+Watchtower's log stopped being written on **2026-10-01 11:42** (last line: "Scheduled next run: 17:42:58"), although the container stays "Up (healthy)". `docker logs watchtower` hangs, even with `--tail 5`, while other containers answer in about a second. The log is only 4 MB in Synology's `db` log driver (see [host → Docker logging](../host/#docker-logging)), so size is not the cause.
+
+**Cause found:** one Watchtower thread was stuck in `pipe_write`, blocked writing a log line because the `db` log driver had stopped reading the container's output pipe. A blocked logger stalls the program, so Watchtower has most likely done **no update checks since about 2026-10-01 17:42**, and its notifications are dead too. The status page shows "unknown" for the same reason. The health check does not notice this.
+
+**Attempted fix, 2026-10-05:** `docker restart watchtower` did not complete. The Watchtower process was gone, but the Docker daemon stayed stuck stopping the container (the `containerd-shim` was still alive, and `docker inspect`/`logs` on this container hung), while all other containers kept working. The ways forward are: wait for the daemon, kill the container's `containerd-shim` process, or restart the Container Manager package (which restarts every container, so plan for downtime). Afterwards consider giving Watchtower the `json-file` log driver with `max-size`/`max-file` in its Compose file so a stalled `db` driver cannot block it again.
+
+Never run `timeout … sudo docker logs watchtower` for diagnosis: the timeout kills `sudo` but leaves the `docker logs` client hanging.
 
 ## Gotchas
 

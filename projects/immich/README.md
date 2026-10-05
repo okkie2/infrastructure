@@ -54,13 +54,16 @@ Gaps:
 3. The live `postgres` data directory is copied as plain files while the database runs; such a copy may not restore cleanly. The dumps are the reliable copy.
 4. The off-site copy is stored unencrypted, on a single machine, and no restore has ever been tried. A failed backup produces no visible alert.
 
-Plan (revised 2026-10-05; **not yet applied**):
+What Immich itself recommends ([backup and restore documentation](https://docs.immich.app/administration/backup-and-restore), read 2026-10-05): follow the **3-2-1 rule**; back up `UPLOAD_LOCATION/library`, `upload` and `profile` (`thumbs` and `encoded-video` can be regenerated); use its automatic database dumps (daily at 02:00, last 14 kept, in `UPLOAD_LOCATION/backups`, metadata only, so they must be restored together with the files); stop `immich_server` while backing up to avoid sync problems. It does not mention filesystem snapshots. Restore is done in the web UI (Administration → Maintenance → Restore database backup).
 
-- **Database: keep Immich's own nightly dumps.** A logical dump is the natural way to back up Postgres, and it already runs (14 kept). Treat the live `postgres` folder as not backed up; consider excluding `/docker/immich/postgres` from Media Docker. Whether 14 dumps is enough is an Immich setting I did not check.
-- **Daily versions on OK040: Btrfs snapshots, not a second Hyper Backup task.** The volume is btrfs, but the **Snapshot Replication** package is not installed (only Hyper Backup is). Install it (Package Center, free) and take a daily snapshot of the shared folders `docker` and `photo` shortly after the 02:00 dump (for example 02:30), keeping about 14 daily snapshots. Snapshots are instant and store only changes, so they do not duplicate the 119 GB library the way a local Hyper Backup copy would. They protect against deleted or overwritten files, ransomware and application mistakes, but, like anything on the same disk, **not against a disk failure**.
-- **Off-disk copy: the existing Sunday Hyper Backup to OK035** (OK035 is only up on Sundays; the single drive means this is the only copy that survives a disk failure).
-- **Second physical copy when affordable:** a USB drive as a daily Hyper Backup target, or a second internal disk for RAID1 (RAID is not a backup). An encrypted cloud copy would cover the days OK035 is off.
-- **Test one restore**: start a scratch Immich of the same pinned version, restore a dump following Immich's documentation, and compare photo counts; repeat after each Immich upgrade.
+Plan (revised again 2026-10-05, following that guidance; **not yet applied**):
+
+- **Database:** keep Immich's own nightly dumps (the defaults already match the recommendation). The live `postgres` folder is not the backup; consider excluding it from Media Docker.
+- **Files:** the Sunday Hyper Backup of `/volume1/docker` already copies `library`, `upload`, `profile` and the dumps to OK035. `thumbs` and `encoded-video` could be excluded to save space on OK035; I did not measure their size.
+- **Third copy (the 3-2-1 gap):** today there are two copies (the NAS and OK035). Add a third: a USB drive as a Hyper Backup target (daily or weekly), and/or an encrypted cloud copy for the days OK035 is off.
+- **Consistency:** a Sunday backup runs for hours while Immich is up, so files and dump can differ slightly. Immich suggests stopping the server during a backup; whether that is worth the downtime is the owner's call.
+- **Test one restore** on a scratch Immich of the same pinned version using the maintenance restore, and compare photo counts; repeat after each Immich upgrade.
 - **Make failures visible**: configure DSM notifications or have the backup tasks call ntfy (see [host → Notifications](../host/#notifications-ntfy)).
+- **Optional extra, not part of Immich's guidance:** daily btrfs snapshots (Snapshot Replication, not installed) as a quick local undo for deleted or overwritten files. They do not protect against a disk failure.
 
 Considered and rejected: a daily local Hyper Backup task into `/backup` that the Sunday run would carry to OK035. It is possible (Hyper Backup can write to a different shared folder on the same NAS, just not into its own source), but it duplicates the library on the same disk, and restoring would mean unpacking a backup of a backup.

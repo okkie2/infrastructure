@@ -109,7 +109,7 @@ Phone alerts use **ntfy** (one private topic, shared by Watchtower and the Kindl
 
 ## Known hazards and open items
 
-The live list is [host → Open items](projects/host/README.md#open-items-2026-10-05). The ones that can bite:
+What to do next is in [TODO.md](TODO.md); the wider list is [host → Open items](projects/host/README.md#open-items-2026-10-05). The ones that can bite:
 
 - Single drive, no RAID; backups unencrypted; no restore ever tested.
 

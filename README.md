@@ -95,6 +95,10 @@ All times are the NAS's local time (Europe/Amsterdam). Detail and the scripts ar
 | Wednesday 05:40 | DSM auto update |
 | 1st of the month 00:00 | Security Advisor monthly report |
 
+## Access and accounts
+
+Admin work happens over **SSH on port 9022** as `master` (key login; password login is also allowed) and in DSM on port 5000; both are reachable from the LAN and over Tailscale, and nothing is forwarded from the internet (QuickConnect is off, no UPnP forwards). The built-in `admin` and `guest` accounts are disabled; `joost` is the personal account; `calibre` and `downloader` are service accounts whose UIDs the containers rely on. Details: [host → Access and accounts](projects/host/README.md#access-and-accounts) and [host → Users](projects/host/README.md#users).
+
 ## Backups, in one paragraph
 
 OK040 has **one drive and no RAID**. The only copy that survives a disk failure is the **Sunday Hyper Backup to OK035**, a remote Synology that is **only powered on Sundays**; the copy is unencrypted. Immich also writes its own nightly database dump. The details, gaps and the plan to add a third copy are in [host → Backups](projects/host/README.md#backups) and [immich → Backups](projects/immich/README.md#backups).

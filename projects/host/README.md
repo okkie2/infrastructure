@@ -26,7 +26,7 @@ Container Manager (Docker), Hyper Backup, Web Station, Plex Media Server, SMB Se
 | `calibre` | 1028 | Owns `/volume1/books`; Calibre-Web and LazyLibrarian run as this uid. |
 | `downloader` | 1031 | Runs qBittorrent, Prowlarr and Sonarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent` and `/volume1/video/TV Shows`. |
 | `joost` | 1029 | Personal account (home, Notes). Keeper runs as `1029:100`. |
-| `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account; Security Advisor's `disable_admin` check passes in the 2026-10-04 scan, so it appears to be disabled (confirm in Control Panel → User & Group). |
+| `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account and is **disabled** (expired; confirmed 2026-10-05, and Security Advisor's `disable_admin` check passes); `guest` is disabled too. |
 
 All share the group `users` (gid 100). UIDs matter because the containers use them for file permissions; recreate the accounts so the numbers match, or change `PUID` in the Compose files.
 
@@ -135,6 +135,15 @@ A 79 MB crash dump `/volume1/@jellyfin.…core.gz` dates from 2026-09-27 (Jellyf
 
 Images that remain on the NAS without a container: `ghcr.io/okkie2/brain-mcp` (7 old digests; its container is gone and its deploy script `~/brain-mcp-deploy/deploy.sh` was not found).
 
+## Access and accounts
+
+Checked on the NAS on 2026-10-05; no passwords or keys are recorded here.
+
+- **SSH** listens on **port 9022** on every interface (LAN and Tailscale). Password login is allowed (`PasswordAuthentication yes`), and `master` has **one** key in `~/.ssh/authorized_keys`. Moving to key-only login would be safer; test the key login in a second terminal before changing it, and note that DSM can overwrite `sshd_config` on updates. Only members of the `administrators` group can use SSH on DSM; that group holds `master` and the disabled `admin`.
+- **Admin access:** `master` (uid 1026) is the working admin account and has `sudo` without a password. `joost` is the personal account and is not an administrator. The service accounts (`calibre`, `downloader`) exist to own files and run containers; see the Users table above.
+- **Port forwarding:** DSM's own UPnP/port-forwarding list is empty and QuickConnect is off. The router's configuration is not visible from the NAS and is not recorded.
+- **Where credentials live:** each application's own login (qBittorrent, Prowlarr, Sonarr, LazyLibrarian, Calibre-Web, Jellyfin, Immich); see Secrets below for the files.
+
 ## Network and services
 
 Checked on the NAS on 2026-10-05.
@@ -158,13 +167,23 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 | 9022 | sshd | all | SSH |
 | 161 | snmpd | 127.0.0.1 | SNMP is local only |
 | 512 | termd | 127.0.0.1 | DSM terminal service |
-| 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI); it has no targets or LUNs, but its ports listen on every interface. |
+| 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI); it has no targets or LUNs, but its ports listen on every interface. It is DSM's built-in **SAN Manager**, a system package that DSM does not let you stop or uninstall. |
 | 5432 | postgres | 127.0.0.1 | DSM's own database, not Immich's |
 | 2283, 5299, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
 | 8766 | docker-proxy | `100.126.55.95` | Keeper, Tailscale only |
 | 8000 | docker-proxy | 127.0.0.1 | Gluetun control server |
 | 32400 | Plex Media Server | all | Plex; 32401, 32600 and the "Plex Script Host" ports are local |
 | 45139, 61465 | tailscaled | `100.126.55.95` / IPv6 | Tailscale itself |
+
+**Firewall recommendation (not applied).** The DSM firewall is on but has no deny rule, so what keeps the internet out today is the router (no forwards, QuickConnect off). A deny rule adds insurance if a port forward or another network segment ever appears. Caution: the DSM firewall also filters **forwarded** traffic (its `FORWARD_FIREWALL` chain has the same rules), so a deny-all without a Docker allow rule would cut the containers off. Rule order in Control Panel → Security → Firewall (profile `default`, all interfaces):
+
+1. Allow source `192.168.178.0/24` (LAN), all ports (exists).
+2. Allow source `100.64.0.0/10` (Tailscale), all ports.
+3. Allow source `172.16.0.0/12` (the Docker bridge networks, currently `172.17`–`172.23`), all ports.
+4. Allow UDP `41641` from all sources (Tailscale's direct path; exists).
+5. **Deny** all other sources, all ports, **last**.
+
+Test before relying on it, with a second SSH session and the DSM tab open: the gateway page over LAN and over Tailscale, a LazyLibrarian search, a qBittorrent download, and a container reaching the internet. To roll back, disable the firewall or delete the deny rule in the same screen. The Sunday Hyper Backup to OK035 is outbound, so replies are covered by the "established" rule, but confirm it after the first Sunday.
 
 Installed DSM packages not described elsewhere in this repo: **ScsiTarget** (iSCSI), **Hybrid Share**, **USB Copy**, **Migration Assistant**, **QuickConnect** (switched off). The Active Backup and Snapshot Replication packages are not installed. **ScsiTarget has no targets and no LUNs**, so it is unused.
 
@@ -197,7 +216,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
 - [ ] Immich backup: add a third copy (USB drive and/or encrypted cloud) and test one restore (see [immich](../immich/#backups)). Snapshot Replication is optional.
-- [ ] Decide whether the unused **ScsiTarget** package should be removed (it listens on the LAN with nothing to serve) and whether the DSM firewall should get a deny rule.
+- [ ] Decide whether the DSM firewall should get a deny rule (recommended rule set under Network and services), and whether SSH should become key-only. ScsiTarget cannot be removed (system package).
 - [ ] Read the result of the first extended SMART test (started 2026-10-05 15:51, due about 05:00 the next morning).
 - [ ] Decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.

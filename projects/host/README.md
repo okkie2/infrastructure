@@ -9,7 +9,7 @@ Everything that is not a container but that the containers depend on. Captured r
 | Model | Synology DS225+ (`synology_geminilakenk_ds225+`), hostname `OK040-DS255Plus` |
 | DSM | 7.4.1-90080, kernel 5.10.55+ |
 | Storage | One volume, `/volume1` (btrfs), 7.0 TB (1.6 TB used on 2026-10-05), on a **single drive**: WD Red 8 TB (`WD80EFPX`, CMR). The data array `md2` is a RAID1 with one member, **by choice (cost)**, so there is **no disk redundancy**: a dead disk loses the volume. DSM's system partitions show `[U_]` for the empty second bay. Spinning disk, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
-| Disk health (2026-10-05) | SMART PASSED; 1,784 power-on hours, 48 power cycles, 30 °C; zero reallocated, pending, offline-uncorrectable and CRC errors; error log empty. **No SMART self-test has ever been run**: schedule a quick test weekly and an extended one monthly (Storage Manager → HDD/SSD → Health Info → S.M.A.R.T. test). |
+| Disk health (2026-10-05) | SMART PASSED; 1,784 power-on hours, 48 power cycles, 30 °C; zero reallocated, pending, offline-uncorrectable and CRC errors; error log empty. No SMART self-test had ever been run before 2026-10-05; two short tests since then completed without error, and weekly quick and monthly extended tests are now scheduled (see Scheduled tasks). |
 | GPU | Intel QuickSync, `/dev/dri`. Jellyfin uses it; Immich transcoding is CPU only. |
 | SSH | Enabled; the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
 | Tailscale | Not the DSM package. The `tailscale-tailscale-1` container is the NAS's Tailscale node. See [tailscale-gateway](../tailscale-gateway/). |
@@ -45,6 +45,8 @@ Permissions are partly Synology ACLs (the `+` in `ls -l`), which a plain `chmod`
 | Media Docker (backup) and verify | root | Sundays 12:15 / 21:00 | Hyper Backup run and verify for the "Media Docker" repo. |
 | Timemachine Homes (backup) and verify | root | Sundays 00:15 / 09:00 | Hyper Backup run and verify for the "Timemachine Homes" repo. |
 | DSM Auto Update, Run security advisor, Security advisor reports | root | weekly / monthly / daily | Synology defaults. |
+| SMART Quicktest | root | Saturdays 01:00 | `/usr/bin/smartctl -d sat -t short /dev/sata1` (about 2 minutes). Added 2026-10-05. |
+| SMART Extended test | root | first Saturday of the month, 02:00 | `/usr/bin/smartctl -d sat -t long /dev/sata1` (about 13 hours; the drive estimates 784 minutes). Added 2026-10-05; the first run was started by hand at 15:51 that day. Read results with `sudo smartctl -d sat -l selftest /dev/sata1`. |
 | Boot-up task for `gluetun/start-stack.sh` | root | at boot | Described in [gluetun-qbittorrent](../gluetun-qbittorrent/). **Exists and works (checked 2026-10-05)**: it is a triggered task named "Start Gluetun stack" (Boot-up, enabled, runs `sh /volume1/docker/gluetun/start-stack.sh`) and last ran at 2026-09-27 09:44, one minute after the NAS booted. Triggered tasks are stored in `/usr/syno/etc/esynoscheduler/esynoscheduler.db`, not in the cron-style task list, so `synoschedtask --get` does not show them. |
 
 Notes Daily Copy script (user-defined script, run as `joost`):
@@ -143,7 +145,8 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
 - [ ] Immich backup: add a third copy (USB drive and/or encrypted cloud) and test one restore (see [immich](../immich/#backups)). Snapshot Replication is optional.
-- [ ] Schedule SMART self-tests; decide whether to add a USB drive (second physical copy) or a second internal disk.
+- [ ] Read the result of the first extended SMART test (started 2026-10-05 15:51, due about 05:00 the next morning).
+- [ ] Decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.
 - [ ] Configure DSM notifications so a failed backup is seen.
 

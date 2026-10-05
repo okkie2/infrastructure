@@ -116,6 +116,6 @@ Readarr is retired and its image deprecated, so LazyLibrarian is used instead.
 ## Radarr (deployed 2026-10-05)
 
 - [x] Add the service to `docker-compose.yml`, create `/volume1/docker/radarr/config`, start it, and add the `/movies` root folder, the qBittorrent client and the Prowlarr application.
-- [ ] **Set a Radarr login** (Settings → General → Security): it currently has none.
+- [x] Set a Radarr login (Forms, required, 2026-10-05).
 - [ ] Decide whether to import the existing 226 films into Radarr (Library Import); keep renaming off.
 - [ ] Verify one real movie is grabbed, imported into `/volume1/video/Movies` and picked up by Plex.

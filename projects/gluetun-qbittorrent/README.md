@@ -100,7 +100,7 @@ Deployed on **2026-10-05** as the movie counterpart of Sonarr, in the same Compo
 | Naming | **Renaming is off**, recycle bin and "delete empty folders" off, hardlinks on (the same conservative settings as Sonarr). |
 | Download client | qBittorrent at `gluetun:8080`, category `radarr`. The connection test passes. |
 | Indexers | Radarr is a Prowlarr application with `fullSync`; Prowlarr pushed the 3 indexers that have movie categories (Knaben and both The Pirate Bay entries). |
-| Login | **None yet.** Radarr is open to anyone on the LAN or tailnet until a username and password are set in its UI (Settings → General → Security). |
+| Login | **Forms authentication, required for everyone** (set 2026-10-05; username `joost`, a generated password kept in your password manager, never in this repo). Prowlarr and qBittorrent talk to Radarr with its API key, which is unaffected. |
 | Homepage | A Radarr tile sits next to Sonarr on the gateway page. |
 
 Folder creation (only for a rebuild): `ssh ok040 'mkdir -p /volume1/docker/radarr/config && sudo chown -R downloader:users /volume1/docker/radarr && sudo chmod -R 775 /volume1/docker/radarr'`. Then deploy with `cd /volume1/docker/gluetun && sudo docker compose -p gluetun-qbittorrent up -d --no-deps radarr`. Radarr is not in Watchtower's list, so update it by hand.

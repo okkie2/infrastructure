@@ -1,12 +1,13 @@
 # synology-nas
 
-Configuration and notes for running **qBittorrent**, **Prowlarr**, and **Sonarr** on a Synology DS225+ (DSM 7.4, Container Manager). Torrent traffic goes through a VPN and **stops completely if the VPN fails**; Sonarr manages the existing TV library.
+Configuration and notes for running **qBittorrent**, **Prowlarr**, **Sonarr**, **Radarr** and **LazyLibrarian** on a Synology DS225+ (DSM 7.4, Container Manager). Torrent traffic goes through a VPN and **stops completely if the VPN fails**; Sonarr manages the existing TV library and Radarr the existing movie library.
 
 ```
 qBittorrent ──► Gluetun ──► WireGuard ──► AirVPN (Netherlands) ──► Internet
                   ▲
 Prowlarr ─────────┘  (talks to qBittorrent's Web UI at gluetun:8080; itself not behind the VPN)
 Sonarr (8989) ───────► /tv (existing Plex TV library)
+Radarr (7878) ───────► /movies (existing Plex Movies library)
 ```
 
 It is written for one household NAS, not as a reusable product. The repo holds the Compose project, a kill-switch test and the working notes; the containers and their data live on the NAS.
@@ -19,6 +20,7 @@ It is written for one household NAS, not as a reusable product. The repo holds t
 - **Sonarr deployed.** Sonarr is running on port 8989, authentication is enabled, `/tv` points to the existing Plex TV folder, and qBittorrent is configured at `gluetun:8080`. Completed-episode imports are verified: Sonarr's history shows `downloadFolderImported` events on 2026-10-02 (Battlestar Galactica 24/24, Rome 22/22, Ivanhoe (1997) 6/6, The A-Team 13/37). Plex pickup has not been verified.
 - **Persistence.** Settings live in `/volume1/docker/<service>/config`; downloads go to the normal shared folder `/volume1/download/qbittorrent`. Both survive restarts and image updates.
 - **Boot start.** `scripts/start-stack.sh` is run by a DSM Task Scheduler boot-up task (as root): it waits for Docker, then runs `docker compose -p gluetun-qbittorrent up -d --no-recreate`. It exists because Container Manager skipped qBittorrent after a reboot (it had exited 137). Copy it to `/volume1/docker/gluetun/start-stack.sh`; the task exists ("Start Gluetun stack", checked 2026-10-05) and ran at the 2026-09-27 boot; it is a triggered task, so it is stored in `esynoscheduler.db` and is not in the cron-style list (see [host](../host/#scheduled-tasks-control-panel--task-scheduler)).
+- **Radarr deployed** (2026-10-05) next to Sonarr; see [Radarr (movies)](#radarr-movies).
 - **Book manager.** LazyLibrarian (port 5299) runs in the same project; see the Configuration table.
 - **Fallback.** `projects/gluetun-qbittorrent/docker-compose.nordvpn.yml` is the previous NordVPN setup (no port forwarding).
 
@@ -67,11 +69,12 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
 | Stack definition | `docker-compose.yml` (project `gluetun-qbittorrent`) |
 | Secrets (WireGuard keys, address) | `/volume1/docker/gluetun/.env` on the NAS, mode 600; template in `.env.example` |
 | Forwarded port | `FIREWALL_VPN_INPUT_PORTS` in the Compose file, and qBittorrent's listening port (`Session\Port`); both must equal the port reserved at AirVPN |
-| Web UIs | qBittorrent `http://<nas>:8080`, Prowlarr `http://<nas>:9696`, Sonarr `http://<nas>:8989` (same published-port pattern as existing apps) |
-| Service config | `/volume1/docker/qbittorrent/config`, `/volume1/docker/prowlarr/config`, `/volume1/docker/sonarr/config` |
+| Web UIs | qBittorrent `http://<nas>:8080`, Prowlarr `http://<nas>:9696`, Sonarr `http://<nas>:8989`, Radarr `http://<nas>:7878` (same published-port pattern as existing apps) |
+| Service config | `/volume1/docker/qbittorrent/config`, `/volume1/docker/prowlarr/config`, `/volume1/docker/sonarr/config`, `/volume1/docker/radarr/config` |
 | Downloads | `/volume1/download/qbittorrent` (files are group-writable: `UMASK=002`) |
 | LazyLibrarian (deployed; runs as uid 1028 `calibre` for write access to the library) | `http://<nas>:5299`; config `/volume1/docker/lazylibrarian/config`; Calibre library `/books/Library` (NAS `/volume1/books/Library`); set Processing → Calibredb import program to `/usr/bin/calibredb` |
 | Sonarr paths | `/downloads` for qBittorrent downloads; `/tv` for the existing `/volume1/video/TV Shows` library |
+| Radarr paths | `/downloads` for qBittorrent downloads; `/movies` for the existing `/volume1/video/Movies` library |
 
 ## Operating it
 
@@ -86,6 +89,23 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
   ```
 
 - **Fall back to NordVPN:** from the repository root, run `ssh ok040 'cat > /volume1/docker/gluetun/docker-compose.yml' < projects/gluetun-qbittorrent/docker-compose.nordvpn.yml`, set qBittorrent's listening port back to 6881 and rebuild. NordVPN offers no forwarded port, so seeding stalls.
+
+## Radarr (movies)
+
+Deployed on **2026-10-05** as the movie counterpart of Sonarr, in the same Compose project (`radarr`, `lscr.io/linuxserver/radarr:latest`, port `7878`, runs as uid 1031 `downloader`, config in `/volume1/docker/radarr/config`).
+
+| Item | Value |
+|---|---|
+| Library | `/volume1/video/Movies` is mounted at `/movies` and added as Radarr's root folder. It is the **existing Plex Movies library** (226 films, about 322 GB); Jellyfin mounts the same folder read-only. Nothing has been imported into Radarr, so it tracks 0 movies and has not touched any existing file. |
+| Naming | **Renaming is off**, recycle bin and "delete empty folders" off, hardlinks on (the same conservative settings as Sonarr). |
+| Download client | qBittorrent at `gluetun:8080`, category `radarr`. The connection test passes. |
+| Indexers | Radarr is a Prowlarr application with `fullSync`; Prowlarr pushed the 3 indexers that have movie categories (Knaben and both The Pirate Bay entries). |
+| Login | **None yet.** Radarr is open to anyone on the LAN or tailnet until a username and password are set in its UI (Settings → General → Security). |
+| Homepage | A Radarr tile sits next to Sonarr on the gateway page. |
+
+Folder creation (only for a rebuild): `ssh ok040 'mkdir -p /volume1/docker/radarr/config && sudo chown -R downloader:users /volume1/docker/radarr && sudo chmod -R 775 /volume1/docker/radarr'`. Then deploy with `cd /volume1/docker/gluetun && sudo docker compose -p gluetun-qbittorrent up -d --no-deps radarr`. Radarr is not in Watchtower's list, so update it by hand.
+
+Radarr can write to, rename and delete files in the Plex library, so be careful with its "Library Import" and "Delete" actions; Plex pickup of newly imported films has not been verified.
 
 ## LazyLibrarian: from download to Calibre-Web and the Kindle
 

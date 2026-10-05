@@ -14,7 +14,7 @@ Reports on, and for a few containers applies, image updates. Uses the maintained
 
 The `command:` list is its scope. On 2026-10-01: `tailscale-tailscale-1`, `calibre-web`, `prowlarr` (updated automatically) and `immich_server`, `immich_machine_learning`, `immich_redis`, `immich_postgres`, `watchtower` (labelled `monitor-only`: reported, never touched).
 
-Not in the list on purpose: `gluetun`, `qbittorrent`, `sonarr`, `lazylibrarian`, `jellyfin`, `keeper`. Update those by hand (stop, rebuild, then for the VPN stack re-run the kill-switch test). `prowlarr` was added to the list on 2026-09-27.
+Not in the list on purpose: `gluetun`, `qbittorrent`, `sonarr`, `radarr`, `lazylibrarian`, `jellyfin`, `keeper`. Update those by hand (stop, rebuild, then for the VPN stack re-run the kill-switch test). `prowlarr` was added to the list on 2026-09-27.
 
 Immich is monitor-only because its database migrations are one-way, and `IMMICH_VERSION` is pinned in its `.env`.
 

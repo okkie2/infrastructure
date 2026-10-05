@@ -112,3 +112,10 @@ Readarr is retired and its image deprecated, so LazyLibrarian is used instead.
 - [x] Verify one real book is grabbed, imported into the Calibre library and visible in Calibre-Web (done 2026-10-02, *The Ghost Writer*; Kindle delivery verified 2026-10-05).
 - [ ] Watch `kindle-check.log` for the first real import, and revisit the 1,000-file threshold once more bad EPUBs are known.
 - [ ] Mark the wanted books as `Wanted` in LazyLibrarian (879 of 921 are `Skipped`, so almost nothing is searched).
+
+## Radarr (deployed 2026-10-05)
+
+- [x] Add the service to `docker-compose.yml`, create `/volume1/docker/radarr/config`, start it, and add the `/movies` root folder, the qBittorrent client and the Prowlarr application.
+- [ ] **Set a Radarr login** (Settings → General → Security): it currently has none.
+- [ ] Decide whether to import the existing 226 films into Radarr (Library Import); keep renaming off.
+- [ ] Verify one real movie is grabbed, imported into `/volume1/video/Movies` and picked up by Plex.

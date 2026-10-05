@@ -20,12 +20,15 @@ flowchart LR
     qBit["qBittorrent (shares Gluetun's network)"] --- Gluetun
     Prowlarr --> Indexers
     Prowlarr -->|syncs indexers| Sonarr
+    Prowlarr -->|syncs indexers| Radarr
     Prowlarr -->|syncs indexers| LL["LazyLibrarian"]
     Sonarr --> qBit
+    Radarr --> qBit
     LL --> qBit
     LL -->|calibredb import| Lib[("Calibre library")]
     Lib --> CW["Calibre-Web"]
     Sonarr -->|imports episodes| TV[("TV Shows")]
+    Radarr -->|imports films| Movies[("Movies")]
     Immich
     Jellyfin
     Plex
@@ -43,7 +46,7 @@ flowchart LR
 | Project | What |
 |---|---|
 | [host](projects/host/) | DSM-level setup: hardware and disk health, users and UIDs, shared folders, **network and services**, **scheduled tasks**, **backups**, **notifications (ntfy)**, **automation outside Docker**, open items, rebuild order. **Start here to rebuild.** |
-| [gluetun-qbittorrent](projects/gluetun-qbittorrent/) | qBittorrent, Prowlarr, Sonarr and LazyLibrarian; torrent traffic is routed through Gluetun with a hard kill switch; the Kindle EPUB check and `fix-epub`. |
+| [gluetun-qbittorrent](projects/gluetun-qbittorrent/) | qBittorrent, Prowlarr, Sonarr, Radarr and LazyLibrarian; torrent traffic is routed through Gluetun with a hard kill switch; the Kindle EPUB check and `fix-epub`. |
 | [calibre-web](projects/calibre-web/) | Calibre-Web front end for the Calibre library, kepubify workaround, email to Kindle. |
 | [immich](projects/immich/) | Immich photo management (four containers, version pinned) and its backup plan. |
 | [jellyfin](projects/jellyfin/) | Jellyfin media server, read-only alongside Plex: Music and Audiobooks. |
@@ -69,7 +72,7 @@ The gateway page `http://100.126.55.95/` (Tailscale address; the NAS's LAN addre
 | 8083 | Calibre-Web | LAN and Tailscale |
 | 5299 | LazyLibrarian | LAN and Tailscale |
 | 8080 | qBittorrent Web UI (published by Gluetun) | LAN and Tailscale |
-| 8989 / 9696 | Sonarr / Prowlarr | LAN and Tailscale |
+| 8989 / 7878 / 9696 | Sonarr / Radarr / Prowlarr | LAN and Tailscale |
 | 8766 | Keeper | Tailscale address only |
 | 8000 | Gluetun control server | the NAS itself only |
 

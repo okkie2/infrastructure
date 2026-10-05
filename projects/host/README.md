@@ -24,7 +24,7 @@ Container Manager (Docker), Hyper Backup, Web Station, Plex Media Server, SMB Se
 |---|---|---|
 | `master` | 1026 | Admin account used over SSH; owns the Compose files in `/volume1/docker`. Jellyfin runs as `1026:100`. |
 | `calibre` | 1028 | Owns `/volume1/books`; Calibre-Web and LazyLibrarian run as this uid. |
-| `downloader` | 1031 | Runs qBittorrent, Prowlarr and Sonarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent` and `/volume1/video/TV Shows`. |
+| `downloader` | 1031 | Runs qBittorrent, Prowlarr, Sonarr and Radarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent`, `/volume1/video/TV Shows` and `/volume1/video/Movies`. |
 | `joost` | 1029 | Personal account (home, Notes). Keeper runs as `1029:100`. |
 | `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account and is **disabled** (expired; confirmed 2026-10-05, and Security Advisor's `disable_admin` check passes); `guest` is disabled too. |
 
@@ -118,11 +118,11 @@ Plex Media Server runs as a DSM package, not a container, with libraries on `/vo
 
 ## Containers that exist on the NAS
 
-14 containers in 6 Compose projects plus one GUI-created container (the Tailscale gateway).
+15 containers in 6 Compose projects plus one GUI-created container (the Tailscale gateway).
 
 | Project | Containers | Folder in this repo |
 |---|---|---|
-| `gluetun-qbittorrent` | gluetun, qbittorrent, prowlarr, sonarr, lazylibrarian | [gluetun-qbittorrent](../gluetun-qbittorrent/) |
+| `gluetun-qbittorrent` | gluetun, qbittorrent, prowlarr, sonarr, radarr, lazylibrarian | [gluetun-qbittorrent](../gluetun-qbittorrent/) |
 | `calibre-web` | calibre-web | [calibre-web](../calibre-web/) |
 | `immich` | immich_server, immich_machine_learning, immich_postgres, immich_redis | [immich](../immich/) |
 | `jellyfin` | jellyfin | [jellyfin](../jellyfin/) |
@@ -171,7 +171,7 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 | 512 | termd | 127.0.0.1 | DSM terminal service |
 | 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI); it has no targets or LUNs, but its ports listen on every interface. It is DSM's built-in **SAN Manager**, a system package that DSM does not let you stop or uninstall. |
 | 5432 | postgres | 127.0.0.1 | DSM's own database, not Immich's |
-| 2283, 5299, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
+| 2283, 5299, 7878, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, Radarr, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
 | 8766 | docker-proxy | `100.126.55.95` | Keeper, Tailscale only |
 | 8000 | docker-proxy | 127.0.0.1 | Gluetun control server |
 | 32400 | Plex Media Server | all | Plex; 32401, 32600 and the "Plex Script Host" ports are local |

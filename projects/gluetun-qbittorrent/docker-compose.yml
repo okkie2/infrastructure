@@ -83,6 +83,24 @@ services:
     ports:
       - "8989:8989"                   # Sonarr Web UI, same published-port pattern as existing apps
 
+  # Movie manager. Same pattern as Sonarr: not behind Gluetun; downloads arrive via qBittorrent.
+  # It writes into the existing Plex Movies library (/movies); Jellyfin mounts the same folder read-only.
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=1031                     # downloader
+      - PGID=100                      # users
+      - UMASK=002
+      - TZ=Europe/Amsterdam
+    volumes:
+      - /volume1/docker/radarr/config:/config
+      - /volume1/download/qbittorrent:/downloads
+      - /volume1/video/Movies:/movies
+    ports:
+      - "7878:7878"                   # Radarr Web UI, same published-port pattern as existing apps
+
   # Book manager (Readarr is retired). Not behind Gluetun. Imports finished books into the
   # existing Calibre library with calibredb, which Calibre-Web serves from the same folder.
   lazylibrarian:

@@ -9,7 +9,7 @@ Everything that is not a container but that the containers depend on. Captured r
 | Model | Synology DS225+ (`synology_geminilakenk_ds225+`), hostname `OK040-DS255Plus` |
 | DSM | 7.4.1-90080, kernel 5.10.55+ |
 | Storage | One volume, `/volume1` (btrfs), 7.0 TB (1.6 TB used on 2026-10-05), on a **single drive**: WD Red 8 TB (`WD80EFPX`, CMR). The data array `md2` is a RAID1 with one member, **by choice (cost)**, so there is **no disk redundancy**: a dead disk loses the volume. DSM's system partitions show `[U_]` for the empty second bay. Spinning disk, so Immich runs with `DB_STORAGE_TYPE=HDD`. |
-| Disk health (2026-10-05) | SMART PASSED; 1,784 power-on hours, 48 power cycles, 30 °C; zero reallocated, pending, offline-uncorrectable and CRC errors; error log empty. No SMART self-test had ever been run before 2026-10-05; two short tests since then completed without error, and weekly quick and monthly extended tests are now scheduled (see Scheduled tasks). |
+| Disk health (2026-10-18) | SMART PASSED; 2,094 power-on hours, 50 power cycles, 30 °C; zero reallocated, pending, offline-uncorrectable and CRC errors; error log empty. Task Scheduler records quick-test launches, but this drive does not support SMART self-test logging, so actual self-test completion cannot be verified from the drive. Weekly quick and first-Saturday extended tests are scheduled (see Scheduled tasks). |
 | GPU | Intel QuickSync, `/dev/dri`. Jellyfin uses it; Immich transcoding is CPU only. |
 | SSH | Enabled on **port 9022** (`ssh ok040`), **key-only** since 2026-10-05 (see Access and accounts); the admin account is `master`. `sudo` works without a password. SFTP is off, so copy files with `ssh ok040 'cat > file' < file`. |
 | Tailscale | Not the DSM package. The `tailscale-tailscale-1` container is the NAS's Tailscale node. See [tailscale-gateway](../tailscale-gateway/). |
@@ -25,7 +25,7 @@ Container Manager (Docker), Hyper Backup, Web Station, Plex Media Server, SMB Se
 | `master` | 1026 | Admin account used over SSH; owns the Compose files in `/volume1/docker`. Jellyfin runs as `1026:100`. |
 | `calibre` | 1028 | Owns `/volume1/books`; Calibre-Web and LazyLibrarian run as this uid. |
 | `downloader` | 1031 | Runs qBittorrent, Prowlarr, Sonarr, Radarr and Bazarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent`, `/volume1/video/TV Shows` and `/volume1/video/Movies`. |
-| `joost` | 1029 | Personal account (home, Notes). Keeper runs as `1029:100`. |
+| `joost` | 1029 | Personal account (home, Volition notes). Volition runs as `1029:100`. |
 | `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account and is **disabled** (expired; confirmed 2026-10-05, and Security Advisor's `disable_admin` check passes); `guest` is disabled too. |
 
 All share the group `users` (gid 100). UIDs matter because the containers use them for file permissions; recreate the accounts so the numbers match, or change `PUID` in the Compose files.
@@ -41,34 +41,68 @@ Permissions are partly Synology ACLs (the `+` in `ls -l`), which a plain `chmod`
 | Task | Owner | When | What |
 |---|---|---|---|
 | status-page-refresh | root | daily from 00:30, repeating through the day (last run 18:30) | `python3 /volume1/docker/status-page/gather-status.py` writes `/volume1/web/status.json`. See [status-page](../status-page/). |
-| Notes Daily Copy | joost | daily 02:00 | Copies `/volume1/homes/joost/Notes` to `/volume1/homes/joost/Notes-backups/Notes-<timestamp>` and keeps the newest 8. Script below. |
+| Volition Daily Copy | joost | daily 02:00 | Runs `/usr/bin/python3 /usr/local/libexec/volition/backup-notes.py`; copies `/volume1/homes/joost/Volition/notes` to `/volume1/homes/joost/Volition-backups/notes-<timestamp>` and keeps the newest 8. |
 | Media Docker (backup) and verify | root | Sundays 12:15 / 21:00 | Hyper Backup run and verify for the "Media Docker" repo. |
 | Timemachine Homes (backup) and verify | root | Sundays 00:15 / 09:00 | Hyper Backup run and verify for the "Timemachine Homes" repo. |
 | DSM Auto Update | root | Wednesdays 05:40 | `synoupgrade --autoupdate` (Synology default). |
 | Run security advisor | root | Sundays 03:13 | Security scan (Synology default). |
 | Task 7 / Task 8 | root | 1st of the month 00:00 / daily 00:00 | `securityadvisorreport monthly 1` / `securityadvisorreport daily 1` (Synology defaults). |
 | SMART Quicktest | root | Saturdays 01:00 | `/usr/bin/smartctl -d sat -t short /dev/sata1` (about 2 minutes). Added 2026-10-05. |
-| SMART Extended test | root | first Saturday of the month, 02:00 | `/usr/bin/smartctl -d sat -t long /dev/sata1` (about 13 hours; the drive estimates 784 minutes). Added 2026-10-05; the first run was started by hand at 15:51 that day. Read results with `sudo smartctl -d sat -l selftest /dev/sata1`. |
+| SMART Extended test | root | first Saturday of the month, 02:00 | `/usr/bin/smartctl -d sat -t long /dev/sata1` (about 13 hours; the drive estimates 784 minutes). Added 2026-10-05; the first run was started by hand at 15:51 that day. `sudo smartctl -d sat -l selftest /dev/sata1` reports that the device does not support self-test logging, so actual completion is unverified. |
 | SSH rescue | root | triggered (boot-up), **disabled**; run by hand only | `sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && /usr/syno/bin/synosystemctl restart sshd`. Undoes the key-only SSH setting. |
 | Boot-up task for `gluetun/start-stack.sh` | root | at boot | Described in [gluetun-qbittorrent](../gluetun-qbittorrent/). **Exists and works (checked 2026-10-05)**: it is a triggered task named "Start Gluetun stack" (Boot-up, enabled, runs `sh /volume1/docker/gluetun/start-stack.sh`) and last ran at 2026-09-27 09:44, one minute after the NAS booted. Triggered tasks are stored in `/usr/syno/etc/esynoscheduler/esynoscheduler.db`, not in the cron-style task list, so `synoschedtask --get` does not show them. |
 
-Notes Daily Copy script (user-defined script, run as `joost`):
+## Proposed power and maintenance windows (not applied)
 
-```sh
-#!/bin/sh
-set -eu
-src=/volume1/homes/joost/Notes
-backup_root=/volume1/homes/joost/Notes-backups
-[ -d "$src" ] || { echo "Source directory not found: $src" >&2; exit 1; }
-mkdir -p "$backup_root"
-stamp=$(date '+%Y-%m-%d_%H%M%S')
-tmp="$backup_root/.Notes-$stamp.partial"
-snapshot="$backup_root/Notes-$stamp"
-[ ! -e "$tmp" ] && [ ! -e "$snapshot" ] || { echo "Snapshot name already exists: $snapshot" >&2; exit 1; }
-cp -a "$src" "$tmp"
-mv "$tmp" "$snapshot"
-find "$backup_root" -mindepth 1 -maxdepth 1 -type d -name 'Notes-????-??-??_??????' -print | sort -r | awk 'NR > 8' | while IFS= read -r old; do rm -rf -- "$old"; done
-```
+Use **maintenance window** for the recurring time when OK040 is powered on to run backups, integrity checks and disk tests. The term is defined in the repository [glossary](../../GLOSSARY.md). Times below are Europe/Amsterdam local time. This is a proposal; the DSM and Hyper Backup schedules have not been changed.
+
+### Evidence and limits
+
+- The requested weekday availability is **08:00–00:00, Monday–Friday**.
+- On 2026-10-04, Timemachine Homes took about **43 minutes** (about 849 GB at the target). Media Docker took about **5 hours 13 minutes** (128,658 files scanned; about 766 GB at the target). These are the only completed run durations available in the repo.
+- On 2026-10-18, the Hyper Backup snapshot showed Timemachine Homes successful at 00:18, but did not record its start. Media Docker was still running at 13:42, at least 1 hour 27 minutes after its scheduled time; no completion time was available. Hyper Backup did not retain a usable run archive during inspection.
+- The backup integrity tasks were scheduled for 09:00 and 21:00. The available monitor snapshots ended at 11:25 and 21:54, but do not retain start times. Treat **2 hours 25 minutes** as an observed planning allowance, not a proven maximum.
+- The weekly SMART Quick Test is scheduled for Saturday 01:00. The first-Saturday Extended Test starts at 02:00 (roughly every four weeks, though calendar months are not exactly four weeks) and the drive estimates **784 minutes (13 hours 4 minutes)**. Task Scheduler logs only the command that starts each test; the drive does not support self-test logging, so actual completion is unverified.
+- SMART reported PASSED with no reallocated, pending or uncorrectable sectors. Drive power-on hours rose by about 958 in 40 days in the available disk-prediction snapshots, roughly 24 hours per day. That snapshot period reflects near-continuous operation; it does not establish exactly when the power schedule was enabled.
+- The NAS power-schedule screen supports daily, weekend, weekday and individual weekday entries; it does not offer a first-Saturday monthly power-off rule. A simple weekly schedule therefore needs to allow the long test window every Saturday, or use a separately validated date-aware shutdown task.
+
+### Recommended schedule
+
+| Day | Power on | Power off | Purpose |
+|---|---:|---:|---|
+| Monday–Friday | 08:00 | 00:00 | Match the stated weekday access window. |
+| Saturday | 00:45 | 01:30 on other Saturdays; 16:00 on the first Saturday | Add a 00:00 Saturday power-off after Friday use, then wake before the 01:00 Quick Test. The first-Saturday 16:00 shutdown allows the 02:00 Extended Test to finish, with about 56 minutes after the drive's 13:04 estimate. |
+| Sunday | 00:00 | 20:15 | Run both backups and integrity checks, with headroom for growth. |
+
+For Sunday, move the Hyper Backup jobs and integrity checks into a tighter sequence:
+
+| Task | Proposed Sunday time | Basis |
+|---|---:|---|
+| Timemachine Homes backup | 00:15 | Keep its current start. |
+| Timemachine Homes integrity check | 03:00 | Allows 2 hours 45 minutes from the backup start, versus the 43-minute completed baseline. |
+| Media Docker backup | 06:00 | Leaves 35 minutes after the longest observed integrity-monitor run ending at 05:25 if the check starts at 03:00. |
+| Media Docker integrity check | 17:00 | Allows about 10 hours 26 minutes for the backup, twice the only completed 5:13 baseline, plus 34 minutes before the check. |
+| Sunday power off | 20:15 | Allows 2 hours 25 minutes for the last observed monitor duration and a further 50-minute margin. |
+
+The Sunday plan assumes the Media Docker backup remains under about **10 hours 26 minutes** and each integrity check finishes within the longest observed **2 hours 25 minutes**. Those are planning limits, not guarantees. Review the first four completed Sunday runs; if a backup approaches its limit, move the start earlier or extend the Sunday power-off time before the next run. Keep OK035 powered on for the whole Sunday window.
+
+The DSM Power Schedule supports weekly day selection but not a first-Saturday exception. For the minimum-uptime plan above, add two date-aware Task Scheduler shutdown actions: at 01:30, power off unless it is the first Saturday; at 16:00, power off only on the first Saturday. Validate these actions on a non-maintenance test day before relying on them. If avoiding custom logic is more important than saving Saturday uptime, use the DSM-only fallback: power off at 16:00 every Saturday, accepting the longer run on the three quick-test-only Saturdays.
+
+### Other scheduled work that must be reconciled
+
+Powering off outside the windows would skip tasks that currently run at 00:00 or 02:00. Before applying the power schedule, move any essential daily work into a powered-on period and check that it completes before shutdown. The Task Scheduler snapshot showed `Volition Daily Copy` at 02:00; the repository also lists a daily Security Advisor report and an Immich database dump, but those two were not visible in that snapshot. Confirm which tasks are enabled and where the Immich dump is scheduled. Hourly status refreshes, Watchtower checks and LazyLibrarian processing will also only run while the NAS is on.
+
+### qBittorrent and disk activity
+
+At the time of inspection there was no qBittorrent process, matching container or qBittorrent configuration in the inspected NAS paths. Its current seeding activity, tracker obligations and live settings could therefore not be verified. The existing project notes record a global seed ratio limit of 2.0, but do not establish that this setting is currently deployed.
+
+Before relying on qBittorrent during the weekday window, reconcile the live client with [its project notes](../gluetun-qbittorrent/README.md#storage-and-seeding-policy). Keep active only torrents that still need downloads or seeding; pause completed torrents once their applicable ratio or tracker requirement is met. Do not apply one global stop ratio to private-tracker torrents until their individual rules are checked. Leave the resume-data interval and disk-cache defaults unchanged unless measured I/O shows a problem: longer resume intervals trade fewer small writes for more lost client state after an unclean stop, and cache changes affect memory and I/O behavior rather than replacing a power-off schedule.
+
+This plan intentionally keeps torrent downloading/seeding out of the Saturday SMART-test and Sunday backup windows. The documented boot task starts the Gluetun stack when OK040 boots, so the rollout must either suppress qBittorrent during maintenance or pause its torrents before the backup and test work; keep the existing VPN kill switch intact whenever qBittorrent is active.
+
+**Rollout order:** verify enabled daily jobs; confirm OK035's Sunday power-on window; set and observe the proposed schedules for four Sundays; then review actual completion times and adjust the margins. Do not report the plan as active until the DSM and Hyper Backup settings are changed and read back.
+
+The installed `Volition Daily Copy` helper is `/usr/local/libexec/volition/backup-notes.py` (root-owned, mode 0755). The enabled Task Scheduler entry runs it as `joost` every day at 02:00. It serializes with MCP writes, copies the full notes store including `.git`, publishes a timestamped snapshot under `/volume1/homes/joost/Volition-backups/`, and keeps the eight newest. At the 2026-10-19 check, the last successful run was 2026-10-18 22:27 and the next trigger was 2026-10-20 02:00.
 
 ## Notifications (ntfy)
 
@@ -118,7 +152,7 @@ Plex Media Server runs as a DSM package, not a container, with libraries on `/vo
 
 ## Containers that exist on the NAS
 
-16 containers in 6 Compose projects plus one GUI-created container (the Tailscale gateway).
+17 containers total: 16 in 6 Compose projects plus one GUI-created container (the Tailscale gateway).
 
 | Project | Containers | Folder in this repo |
 |---|---|---|
@@ -126,7 +160,7 @@ Plex Media Server runs as a DSM package, not a container, with libraries on `/vo
 | `calibre-web` | calibre-web | [calibre-web](../calibre-web/) |
 | `immich` | immich_server, immich_machine_learning, immich_postgres, immich_redis | [immich](../immich/) |
 | `jellyfin` | jellyfin | [jellyfin](../jellyfin/) |
-| `keeper-managed` | keeper | [keeper](../keeper/) |
+| `volition` | volition, volition-tunnel-client | [volition](../volition/) |
 | `watchtower` | watchtower | [watchtower](../watchtower/) |
 | none (GUI-created) | tailscale-tailscale-1 | [tailscale-gateway](../tailscale-gateway/) |
 
@@ -172,7 +206,7 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 | 3261, 3263, 3264, 3265 | `scsi_plugin_server` and related | all | From the **ScsiTarget** package (iSCSI); it has no targets or LUNs, but its ports listen on every interface. It is DSM's built-in **SAN Manager**, a system package that DSM does not let you stop or uninstall. |
 | 5432 | postgres | 127.0.0.1 | DSM's own database, not Immich's |
 | 2283, 5299, 6767, 7878, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, Bazarr, Radarr, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
-| 8766 | docker-proxy | `100.126.55.95` | Keeper, Tailscale only |
+| 8766 | docker-proxy | `100.126.55.95` | Volition MCP, Tailscale only; tunnel client has no published port |
 | 8000 | docker-proxy | 127.0.0.1 | Gluetun control server |
 | 32400 | Plex Media Server | all | Plex; 32401, 32600 and the "Plex Script Host" ports are local |
 | 45139, 61465 | tailscaled | `100.126.55.95` / IPv6 | Tailscale itself |
@@ -197,9 +231,9 @@ DSM's Task Scheduler lists two power tasks, `PowerOff` and `PowerOn task 0`, bot
 
 Things that run on the NAS but are not Compose projects. None of these files are in this repo.
 
-| What | Where | State on 2026-10-05 |
+| What | Where | State (see dates in each entry) |
 |---|---|---|
-| **Keeper recovery watcher** | `~/keeper-deploy/` (`deploy.sh`, `install-recovery.sh`, `keeper-recover-watch.sh`, `recover-tailscale-bind.sh`); installed as `/etc/systemd/system/keeper-recover.service` with `/usr/local/libexec/keeper/` | Keeper binds to the Tailscale address, which only exists once the Tailscale container is up; when Docker starts Keeper too early the start fails. The watcher listens to Docker's event stream and starts Keeper again after Tailscale starts. **Found enabled but never started** since the 2026-09-27 boot (no start timestamp), and started by hand on **2026-10-05 16:02**; it is active, listening to Docker events for the Tailscale container, and systemd lists it under `multi-user.target`, so it starts at boot. After a DSM update, confirm with `systemctl is-active keeper-recover.service`. The old polling timer was retired by the install script; `keeper-recover.timer` in the folder is a leftover. |
+| **Volition recovery watcher** | `~/volition-deploy/` (`deploy.sh`, `install-recovery.sh`, `volition-recover-watch.sh`, `recover-tailscale-bind.sh`); installed as `/etc/systemd/system/volition-recover.service` with `/usr/local/libexec/volition/` | Volition binds to the Tailscale address, which only exists once the Tailscale container is up; this watcher listens for that container and retries Volition after the address appears. Check with `systemctl is-active volition-recover.service` (details checked 2026-10-19). |
 | **Ansible (retired)** | `~/ansible.retired-2026-10-05/` (was `~/ansible/`: `site.yml`, role `docker_container`, `group_vars/ok040.yml`, `files/<project>/docker-compose.yml`) | Copies each project's Compose file to `/volume1/docker/<project>/` and runs `docker compose up`. **It looks like it was never run**: Ansible is not installed on the NAS or on the Mac, there is no copy under `~/Code`, there is no `ansible-playbook` in the shell history, and the files date from 2026-09-22. Its copies have drifted from the running files: `gluetun` differs by 43 lines (it lacks Sonarr and LazyLibrarian), `calibre-web` by 5, `watchtower` by 2; Immich matches. It also holds a reconstructed `brain-mcp` file with a stale Tailscale IP. Anyone who installed Ansible and ran the playbook would redeploy old definitions. **Retired on 2026-10-05**: the folder was renamed to `~/ansible.retired-2026-10-05` (reversible, with a `RETIRED.txt` note) and kept for the `brain-mcp` file; it is safe to delete. The repo is the source of truth. |
 | `~/find-agent-cli.sh` | home of `master` | Helper that locates an agent CLI (`claude` by default) on DSM. |
 | `~/brain-mcp-access-findings.md` | home of `master` | A 2026-09-11 note on remote access for the Brain MCP service (the container no longer exists; see Containers below). |
@@ -219,7 +253,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 - [ ] Find out why Watchtower's log stopped and why `docker logs watchtower` hangs.
 - [ ] Immich backup: add a third copy (USB drive and/or encrypted cloud) and test one restore (see [immich](../immich/#backups)). Snapshot Replication is optional.
 - [ ] Decide whether the DSM firewall should get a deny rule (recommended rule set under Network and services), and ScsiTarget cannot be removed (system package).
-- [ ] Read the result of the first extended SMART test (started 2026-10-05 15:51, due about 05:00 the next morning).
+- [ ] Find a supported way to verify SMART self-test completion: Task Scheduler only records the asynchronous test launch, and the drive does not support self-test logging.
 - [ ] Decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.
 - [ ] Configure DSM notifications so a failed backup is seen.
@@ -228,8 +262,8 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 
 1. Install DSM 7.4, create the volume, then the users and shared folders above with the same UIDs.
 2. Install Container Manager, Web Station, Hyper Backup, Plex.
-3. Restore `/volume1/docker` from backup if it exists. Otherwise recreate each project from this repo and the per-project README.
-4. Start [tailscale-gateway](../tailscale-gateway/) first (everything else is reached over it), then the projects in any order: gluetun-qbittorrent, immich, calibre-web, jellyfin, keeper, watchtower.
+3. Restore `/volume1/docker` from backup if it exists. Otherwise recreate each project from this repo and the per-project README. Restore Volition's NAS-only deployment directory, `/volume1/homes/master/volition-deploy`, from the `Timemachine Homes` backup; its Compose file and deployment scripts are not in this repository.
+4. Start [tailscale-gateway](../tailscale-gateway/) first (everything else is reached over it), then the projects in any order: gluetun-qbittorrent, immich, calibre-web, jellyfin, volition, watchtower.
 5. Recreate the Task Scheduler entries, then [status-page](../status-page/).
 6. Re-enter secrets from your password manager; none are in this repo.
 
@@ -239,7 +273,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 |---|---|
 | `/volume1/docker/gluetun/.env` | `WIREGUARD_PRIVATE_KEY`, `WIREGUARD_PRESHARED_KEY`, `WIREGUARD_ADDRESSES`, `NORDVPN_WIREGUARD_PRIVATE_KEY` |
 | `/volume1/docker/immich/.env` | `DB_PASSWORD` |
-| `/volume1/docker/keeper-managed/.env` | `KEEPER_TOKEN` |
+| `/volume1/homes/master/volition-deploy/secrets/` | `volition-authorization`, `openai-runtime-key` |
 | Tailscale gateway container | `TS_AUTHKEY` |
 | Watchtower compose | ntfy topic name (treated as private) |
 | `/volume1/docker/lazylibrarian/config/kindle-check.conf` | `NTFY_URL` (the same ntfy topic); git-ignored, mode 640 |

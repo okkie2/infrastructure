@@ -12,9 +12,9 @@ Reports on, and for a few containers applies, image updates. Uses the maintained
 
 ## Which containers it touches
 
-The `command:` list is its scope. On 2026-10-01: `tailscale-tailscale-1`, `calibre-web`, `prowlarr` (updated automatically) and `immich_server`, `immich_machine_learning`, `immich_redis`, `immich_postgres`, `watchtower` (labelled `monitor-only`: reported, never touched).
+The `command:` list is its scope. The live list checked on 2026-10-19 includes `tailscale-tailscale-1`, `calibre-web`, `prowlarr` and `volition-tunnel-client` (checked and updated automatically), plus `immich_server`, `immich_machine_learning`, `immich_redis`, `immich_postgres` and `watchtower` (labelled `monitor-only`: reported, never touched).
 
-Not in the list on purpose: `gluetun`, `qbittorrent`, `sonarr`, `radarr`, `bazarr`, `lazylibrarian`, `jellyfin`, `keeper`. Update those by hand (stop, rebuild, then for the VPN stack re-run the kill-switch test). `prowlarr` was added to the list on 2026-09-27.
+Not in the list on purpose: `volition` (its server image is digest-pinned and updated through its deployment procedure), `gluetun`, `qbittorrent`, `sonarr`, `radarr`, `bazarr`, `lazylibrarian` and `jellyfin`. For the VPN stack, re-run the kill-switch test after manual updates. The checked-in Compose target list now includes `volition-tunnel-client`.
 
 Immich is monitor-only because its database migrations are one-way, and `IMMICH_VERSION` is pinned in its `.env`.
 

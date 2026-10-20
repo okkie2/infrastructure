@@ -93,6 +93,17 @@ Assumes SSH access to the NAS as `ok040` and a running Container Manager. Nothin
 
 - **Fall back to NordVPN:** from the repository root, run `ssh ok040 'cat > /volume1/docker/gluetun/docker-compose.yml' < projects/gluetun-qbittorrent/docker-compose.nordvpn.yml`, set qBittorrent's listening port back to 6881 and rebuild. NordVPN offers no forwarded port, so seeding stalls.
 
+## Storage and seeding policy
+
+The host's proposed power and maintenance plan is in [host → Proposed power and maintenance windows](../host/README.md#proposed-power-and-maintenance-windows-not-applied). It keeps torrent traffic out of SMART tests and Hyper Backup runs.
+
+- Keep torrents active only while they are downloading or still need to seed. Pause completed torrents when their applicable ratio or tracker requirement is met; do not delete their files as part of routine cleanup. qBittorrent's [share-ratio limits](https://github.com/qbittorrent/qBittorrent/wiki/How-to-disable-auto-seed) can pause torrents at a selected ratio.
+- Check each private tracker's seeding rules before applying a global ratio limit. The setup notes record a 2.0 global seed-ratio limit, but the live qBittorrent service and configuration were not found during the 2026-10-18 host inspection, so that value is not confirmed as deployed.
+- Leave resume-data interval and disk-cache settings at their recognized defaults unless measured disk activity justifies changing them. Resume data is client state; lengthening its save interval may lose more recent queue state after an unclean stop. Disk cache can reduce or coalesce some I/O, but it does not stop reads while active torrents seed. See qBittorrent's [settings guide](https://github.com/qbittorrent/qBittorrent/wiki/Explanation-of-Options-in-qBittorrent) and [libtorrent disk-cache notes](https://www.libtorrent.org/features.html).
+- During maintenance, pause torrents before starting backups or SMART tests. Keep the VPN kill switch in place whenever qBittorrent is active.
+
+These are operating recommendations, not live qBittorrent settings. The 2026-10-18 inspection found no running qBittorrent process, matching container or configuration in the inspected NAS paths; confirm where and whether the service is currently deployed before applying them.
+
 ## Radarr (movies)
 
 Deployed on **2026-10-05** as the movie counterpart of Sonarr, in the same Compose project (`radarr`, `lscr.io/linuxserver/radarr:latest`, port `7878`, runs as uid 1031 `downloader`, config in `/volume1/docker/radarr/config`).

@@ -2,7 +2,7 @@
 
 Configuration, Compose projects and working notes for **OK040**, a Synology DS225+ (DSM 7.4.1, Container Manager) that runs one household's media, photos, books and backups. This repo is documentation plus the Compose files and helper scripts; the containers and their data live on the NAS. Secrets are never stored here (each project lists the names it needs).
 
-It is written for one household NAS, not as a reusable product. Last reconciled with the running NAS on **2026-10-05**.
+It is written for one household NAS, not as a reusable product. The full NAS inventory was last reconciled on **2026-10-05**; Volition and its tunnel client were checked on **2026-10-19**.
 
 ## At a glance
 
@@ -14,6 +14,7 @@ flowchart LR
     Infomaniak["Infomaniak SMTP"]
     Amazon["Amazon Send-to-Kindle"]
     Ntfy["ntfy.sh"]
+    OpenAI["ChatGPT Voice + Secure MCP Tunnel"]
   end
   subgraph OK040["OK040: DS225+, single drive"]
     Gluetun --> AirVPN
@@ -36,11 +37,15 @@ flowchart LR
     Immich
     Jellyfin
     Plex
-    Keeper
+    Volition["Volition MCP"]
+    Tunnel["Volition tunnel client"]
     TS["Tailscale gateway"]
     WT["Watchtower"] -->|alerts| Ntfy
     LL -->|EPUB check alert| Ntfy
     Status["Status page (Web Station)"]
+    Tunnel -.->|opens outbound tunnel| OpenAI
+    OpenAI -->|MCP requests through tunnel| Tunnel
+    Tunnel -->|private MCP request| Volition
   end
   CW -->|email| Infomaniak --> Amazon --> Kindle(["Kindle"])
   Ntfy --> Phone(["Phone"])
@@ -54,7 +59,7 @@ flowchart LR
 | [calibre-web](projects/calibre-web/) | Calibre-Web front end for the Calibre library, kepubify workaround, email to Kindle. |
 | [immich](projects/immich/) | Immich photo management (four containers, version pinned) and its backup plan. |
 | [jellyfin](projects/jellyfin/) | Jellyfin media server, read-only alongside Plex: Music and Audiobooks. |
-| [keeper](projects/keeper/) | Keeper Markdown notes service, Tailscale-only, digest-pinned. |
+| [volition](projects/volition/) | Markdown notes over MCP; ChatGPT Voice reaches it through the NAS tunnel client. |
 | [watchtower](projects/watchtower/) | Image update reporting and selective auto-update, with ntfy notifications. |
 | [tailscale-gateway](projects/tailscale-gateway/) | The NAS's Tailscale node (container, no Compose file on the NAS). |
 | [tailscale-access](projects/tailscale-access/) | Tailscale access policy notes: how OK040 and the remote backup target OK035 are reached. |
@@ -62,7 +67,7 @@ flowchart LR
 
 ## Where to reach things
 
-The gateway page `http://100.126.55.95/` (Tailscale address; the NAS's LAN address is `192.168.178.110`) links to each service. What listens, and who can reach it (checked 2026-10-05):
+The gateway page `http://100.126.55.95/` (Tailscale address; the NAS's LAN address is `192.168.178.110`) links to each service. What listens, and who can reach it (checked 2026-10-05; Volition rechecked 2026-10-19):
 
 | Port | Service | Reachable from |
 |---|---|---|
@@ -77,10 +82,10 @@ The gateway page `http://100.126.55.95/` (Tailscale address; the NAS's LAN addre
 | 5299 | LazyLibrarian | LAN and Tailscale |
 | 8080 | qBittorrent Web UI (published by Gluetun) | LAN and Tailscale |
 | 8989 / 7878 / 6767 / 9696 | Sonarr / Radarr / Bazarr / Prowlarr | LAN and Tailscale |
-| 8766 | Keeper | Tailscale address only |
+| 8766 | Volition MCP | Tailscale address only |
 | 8000 | Gluetun control server | the NAS itself only |
 
-More detail, including the DSM-internal ports, is in [host → Network and services](projects/host/README.md#network-and-services).
+The `volition-tunnel-client` publishes no inbound port. It maintains an outbound connection to OpenAI Secure MCP Tunnel, which lets ChatGPT Voice reach Volition. More detail, including the DSM-internal ports, is in [host → Network and services](projects/host/README.md#network-and-services) and the [Volition project notes](projects/volition/README.md).
 
 ## What runs when
 
@@ -93,7 +98,7 @@ All times are the NAS's local time (Europe/Amsterdam). Detail and the scripts ar
 | Every 6 hours | Watchtower update check |
 | Hourly at :30 | `status-page-refresh` |
 | Daily 00:00 | Security Advisor daily report |
-| Daily 02:00 | Immich database dump; `Notes Daily Copy` |
+| Daily 02:00 | Immich database dump; `Volition Daily Copy` |
 | Saturday 01:00 | SMART quick test |
 | First Saturday, 02:00 | SMART extended test (about 13 hours) |
 | Sunday 00:15 / 09:00 | Hyper Backup "Timemachine Homes": backup / integrity check |
@@ -101,6 +106,8 @@ All times are the NAS's local time (Europe/Amsterdam). Detail and the scripts ar
 | Sunday 12:15 / 21:00 | Hyper Backup "Media Docker": backup / integrity check |
 | Wednesday 05:40 | DSM auto update |
 | 1st of the month 00:00 | Security Advisor monthly report |
+
+The proposed power-on/off plan, including backup-growth margins and the Saturday SMART-test window, is documented in [host → Proposed power and maintenance windows](projects/host/README.md#proposed-power-and-maintenance-windows-not-applied). It is a plan only; it has not been applied to DSM.
 
 ## Access and accounts
 
@@ -122,7 +129,7 @@ What to do next is in [TODO.md](TODO.md); the wider list is [host → Open items
 
 ## Not in this repo
 
-The Tailscale access policy and key settings (admin console); Hyper Backup's own task store (its settings are copied into the host README); Plex's configuration (it lives in the `PlexMediaServer` share, which the backup covers); every secret; and NAS-only files: `~/ansible.retired-2026-10-05` (an unused, retired Ansible setup), `~/keeper-deploy`, `/volume1/docker/BACKUP-INFRA-TODO.md`, `/volume1/docker/status-page/NOTES.md`.
+The Tailscale access policy and key settings (admin console); Hyper Backup's own task store (its settings are copied into the host README); Plex's configuration (it lives in the `PlexMediaServer` share, which the backup covers); every secret; and NAS-only files: `~/ansible.retired-2026-10-05` (an unused, retired Ansible setup), `~/volition-deploy`, `/volume1/docker/BACKUP-INFRA-TODO.md`, `/volume1/docker/status-page/NOTES.md`.
 
 ## How this repo is kept
 

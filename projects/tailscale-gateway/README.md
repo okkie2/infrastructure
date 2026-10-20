@@ -16,7 +16,7 @@ The NAS's Tailscale node, run as a container with a real TUN interface instead o
 1. `mkdir -p /volume1/docker/tailscale-gateway`.
 2. Create a reusable, non-expiring auth key in the Tailscale admin console (Settings → Keys).
 3. Either run `sudo env TS_AUTHKEY=<key> docker compose -f docker-compose.reconstructed.yml up -d`, or create the container in Container Manager with the same environment and mount.
-4. In the admin console, disable key expiry for `ok040-gateway` and check that the IP is `100.126.55.95`. A new node gets a new IP; the access policy ([tailscale-access](../tailscale-access/)), Keeper's port binding and the homepage tiles all use that address, so update them if it changes.
+4. In the admin console, disable key expiry for `ok040-gateway` and check that the IP is `100.126.55.95`. A new node gets a new IP; the access policy ([tailscale-access](../tailscale-access/)), Volition's port binding and the homepage tiles all use that address, so update them if it changes.
 
 ## Why `TS_STATE_DIR` matters
 

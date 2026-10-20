@@ -262,7 +262,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 
 1. Install DSM 7.4, create the volume, then the users and shared folders above with the same UIDs.
 2. Install Container Manager, Web Station, Hyper Backup, Plex.
-3. Restore `/volume1/docker` from backup if it exists. Otherwise recreate each project from this repo and the per-project README. Restore Volition's NAS-only deployment directory, `/volume1/homes/master/volition-deploy`, from the `Timemachine Homes` backup; its Compose file and deployment scripts are not in this repository.
+3. Restore `/volume1/docker` from backup if it exists. Otherwise recreate each project from this repo and the per-project README. For Volition, use the redacted deployment references in this repo and restore the active deployment directory, `/volume1/homes/master/volition-deploy`, from the `Timemachine Homes` backup. The checked-in tunnel config and environment file are examples with redactions/placeholders; restore the active config and credentials from the backup or password manager before starting it.
 4. Start [tailscale-gateway](../tailscale-gateway/) first (everything else is reached over it), then the projects in any order: gluetun-qbittorrent, immich, calibre-web, jellyfin, volition, watchtower.
 5. Recreate the Task Scheduler entries, then [status-page](../status-page/).
 6. Re-enter secrets from your password manager; none are in this repo.

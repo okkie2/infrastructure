@@ -1,0 +1,12 @@
+[Unit]
+Description=Start Volition after Tailscale, when Docker started it too early
+After=pkg-ContainerManager-dockerd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/volition/volition-recover-watch.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

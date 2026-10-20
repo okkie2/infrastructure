@@ -1,0 +1,43 @@
+services:
+  tunnel-client:
+    # Observed active reference; this is mutable and Watchtower auto-updates it.
+    image: ghcr.io/openai/tunnel-client:latest
+    container_name: volition-tunnel-client
+    user: "1026:100"
+    # Persistent egress policy must be installed before first start and remain
+    # active through Watchtower recreations/restarts.
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    command:
+      - --config
+      - /etc/tunnel-client/config.yaml
+    volumes:
+      - type: bind
+        source: /volume1/homes/master/volition-deploy/tunnel-client.yaml
+        target: /etc/tunnel-client/config.yaml
+        read_only: true
+      - type: bind
+        source: /volume1/homes/master/volition-deploy/secrets/openai-runtime-key
+        target: /run/secrets/control-plane-api-key
+        read_only: true
+      - type: bind
+        source: /volume1/homes/master/volition-deploy/secrets/volition-authorization
+        target: /run/secrets/volition-authorization
+        read_only: true
+    networks:
+      tunnel-egress:
+        ipv4_address: 172.24.0.2
+
+networks:
+  tunnel-egress:
+    name: volition-tunnel-egress
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.24.0.0/24

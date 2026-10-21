@@ -133,4 +133,4 @@ The Tailscale access policy and key settings (admin console); Hyper Backup's own
 
 ## How this repo is kept
 
-One project per folder under `projects/`, each with its own README; changes go in `CHANGELOG.md` (where the project has one). Commits are small and describe why. The remote repository is hosted privately on [Codeberg](https://codeberg.org/okkingaj/synology-nas). Apply Compose files to the NAS by piping them through SSH (`ssh ok040 'cat > …' < file`), because the SFTP subsystem is off.
+One project per folder under `projects/`, each with its own README; changes go in `CHANGELOG.md` (where the project has one). Commits are small and describe why. The canonical repository is [GitHub](https://github.com/okkie2/synology-nas); the Codeberg repository is a secondary copy and may lag behind. Apply Compose files to the NAS by piping them through SSH (`ssh ok040 'cat > …' < file`), because the SFTP subsystem is off.

@@ -142,6 +142,18 @@ DSM's own notifier is **not** usable for this: `synodsmnotify` only accepts pred
 - **OK035** is an ordinary Synology on the tailnet. A plan to move it to another site is in `/volume1/docker/BACKUP-INFRA-TODO.md` on the NAS (an older note, partly stale). The access policy is in [tailscale-access](../tailscale-access/).
 - **Time Machine**: the `timemachine` share holds `joost.sparsebundle`; the Mac backs up to it over SMB. Hyper Backup then copies that share to OK035 (Timemachine Homes).
 
+### Mac project backups (convention, 2026-10-23)
+
+Private runtime data of projects on the Mac (databases, credentials-adjacent state) is backed up to the NAS with one convention for every project. The first user is the LinkedIn archive (`~/Code/Linkedin`, plan in its `docs/data-layout-migration-plan.md`).
+
+- **Where:** `<home share>/backups/<project>/YYYY-MM-DD/`, i.e. `/volume1/homes/joost/backups/<project>/` on the NAS. This is the personal home of the non-admin `joost` account (folder owner-only, mode 755), not the world-writable `backup` share, which holds `icloud-photo-backup` and is not used for this.
+- **How the Mac reaches it:** the existing SMB mount, not SSH. The Mac LaunchAgent `com.timemachine.autosmb` (`~/bin/home-timemachine-share.sh`, every 60 s, at login and on network changes) mounts the `home` and `timemachine` shares over Tailscale as `joost`, with the password in the login keychain. The mountpoint is not stable: macOS appends a suffix when a stale `/Volumes/home` exists (it was `/Volumes/home-1` on 2026-10-23), so jobs must find the mount by its URL (`//joost@100.126.55.95/home`), not by path.
+- **Job rules:** a backup job never mounts anything; if the share is absent it records "deferred" and retries on the next hourly check. It copies under a temporary name, verifies by SHA-256 against the local copy, then renames. SQLite files are never opened over SMB.
+- **Cadence:** weekly, by a catch-up job that runs the first time the laptop is awake after 7 days (the laptop sleeps at night). Retention 8 weekly and 12 monthly copies; the irreplaceable LinkedIn changelog copies monthly indefinitely. Same idea as the NAS's own `Volition-backups` (newest 8).
+- **Off-site:** nothing new to configure. The `Timemachine Homes` Hyper Backup task already includes `/homes`, so `backups/` reaches OK035 on Sundays with up to 25 versions. Same caveats as above: OK035 stores the data **unencrypted** and a restore has never been tested.
+- **Snapshots:** Snapshot Replication was installed by the owner on 2026-10-23. At the check that day `synopkg` reported it **stopped** and no snapshot schedule or snapshot existed (`@sharesnap` held only `.meta` entries), so no snapshot protection can be claimed yet. Intended: a daily schedule with 30 days' retention on the `homes` share.
+- **Not yet verified:** that a launchd-run job may write to the network volume (macOS can silently deny background interpreters access to network volumes). Observe the first scheduled run.
+
 ## Web Station homepage
 
 `/volume1/web/index.html` is a static page served by Web Station on port 80, with a live status section fed by `status.json`. The source is in [status-page](../status-page/).
@@ -221,7 +233,7 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 
 Test before relying on it, with a second SSH session and the DSM tab open: the gateway page over LAN and over Tailscale, a LazyLibrarian search, a qBittorrent download, and a container reaching the internet. To roll back, disable the firewall or delete the deny rule in the same screen. The Sunday Hyper Backup to OK035 is outbound, so replies are covered by the "established" rule, but confirm it after the first Sunday.
 
-Installed DSM packages not described elsewhere in this repo: **ScsiTarget** (iSCSI), **Hybrid Share**, **USB Copy**, **Migration Assistant**, **QuickConnect** (switched off). The Active Backup and Snapshot Replication packages are not installed. **ScsiTarget has no targets and no LUNs**, so it is unused.
+Installed DSM packages not described elsewhere in this repo: **ScsiTarget** (iSCSI), **Hybrid Share**, **USB Copy**, **Migration Assistant**, **QuickConnect** (switched off). Active Backup is not installed. Snapshot Replication was installed on 2026-10-23 but was stopped with no schedule at the time of the check (see Mac project backups). **ScsiTarget has no targets and no LUNs**, so it is unused.
 
 ## Power schedule
 
@@ -257,6 +269,8 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 - [ ] Decide whether to add a USB drive (second physical copy) or a second internal disk.
 - [ ] Decide on encryption for the OK035 backups, and test a restore once.
 - [ ] Configure DSM notifications so a failed backup is seen.
+- [ ] Start Snapshot Replication and give the `homes` share a daily snapshot schedule (30 days); then read back with `synopkg status SnapshotReplication` and an existing snapshot. Until then, the Mac project backups rely on the weekly Hyper Backup alone.
+- [ ] Observe the first scheduled Mac project backup writing to the SMB mount (macOS network-volume access for background jobs).
 
 ## Rebuild order
 

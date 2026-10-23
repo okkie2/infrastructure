@@ -143,6 +143,7 @@
 
   function render(data) {
     var tm = data.time_machine || {};
+    var lb = data.linkedin_backup || {};
     var hb = data.ok035_backup || {};
     var wt = data.watchtower || {};
     var sa = data.security_advisor || {};
@@ -150,6 +151,7 @@
     // Summary rows: [label, value text, status]
     var checks = [];
     checks.push(['Time Machine', tm.last_backup ? fmtWhen(tm.last_backup) + ' (' + fmtAge(tm.age_days) + ')' : 'unknown', tm.status]);
+    checks.push(['LinkedIn backup', lb.last_backup ? fmtWhen(lb.last_backup) + ' (' + fmtAge(lb.age_days) + ')' : (lb.note || 'unknown'), lb.status]);
     Object.keys(hb.repos || {}).forEach(function (name) {
       var r = hb.repos[name];
       checks.push(['Backup to OK035, ' + name, fmtWhen(r.last_activity) + ' (' + fmtAge(r.age_days) + ')', hb.status]);

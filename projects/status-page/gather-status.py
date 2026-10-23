@@ -27,6 +27,11 @@ OUT_PATH = "/volume1/web/status.json"
 
 TM_SPARSEBUNDLE = "/volume1/timemachine/joost.sparsebundle"
 
+# Weekly LinkedIn database backups pushed from the Mac (see host README, "Mac
+# project backups"). Each backup is a directory named by its UTC creation time;
+# it only appears once complete (the Mac renames it into place after verifying).
+LINKEDIN_BACKUP_DIR = "/volume1/backup/linkedin-archive"
+
 # Hyper Backup's local per-repo cache dirs; their mtime tracks the last
 # time that repo was touched by a backup run. This is a recency proxy,
 # not a confirmed pass/fail result from OK035 itself -- Hyper Backup's
@@ -91,6 +96,32 @@ def time_machine():
     days = age_days(mtime)
     status = "ok" if days <= 7 else ("warn" if days <= 9 else "stale")
     return {"last_backup": iso(mtime), "age_days": round(days, 1), "status": status}
+
+
+def linkedin_backup():
+    """Age of the newest complete LinkedIn backup. The Mac job runs hourly but
+    only creates a backup when the newest is over 7 days old, so a healthy
+    system is never much older than 8 days; beyond that the job has stopped
+    or the NAS copy is failing, which nothing else would announce."""
+    newest = None
+    try:
+        names = os.listdir(LINKEDIN_BACKUP_DIR)
+    except OSError:
+        return {"status": "unknown"}
+    for name in names:
+        try:
+            created = datetime.strptime(name, "%Y-%m-%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue  # skips .tmp-* in-progress copies and anything else
+        if not os.path.isfile(os.path.join(LINKEDIN_BACKUP_DIR, name, "MANIFEST.json")):
+            continue
+        if newest is None or created > newest:
+            newest = created
+    if newest is None:
+        return {"status": "stale", "note": "no backup found"}
+    days = (now() - newest).total_seconds() / 86400.0
+    status = "ok" if days <= 8 else ("warn" if days <= 9 else "stale")
+    return {"last_backup": newest.isoformat(), "age_days": round(days, 1), "status": status}
 
 
 def ok035_backup():
@@ -350,6 +381,7 @@ def main():
     result = {
         "generated_at": now().isoformat(),
         "time_machine": time_machine(),
+        "linkedin_backup": linkedin_backup(),
         "ok035_backup": ok035_backup(),
         "security_advisor": security_advisor(),
         "watchtower": wt_status,

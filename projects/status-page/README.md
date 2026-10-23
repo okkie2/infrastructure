@@ -12,6 +12,10 @@ The OK040 homepage (static, served by Web Station) with a live "System status" s
 
 The page shows six signals, each green/amber/red: Time Machine freshness (red after 7 days), LinkedIn backup freshness (amber after 8 days, red after 9), Hyper Backup activity per repo for OK035, Watchtower's last check, Security Advisor results, and per-container image age with an update badge. Each link tile on the homepage points at a service on the Tailscale IP (`100.126.55.95`).
 
+## Deployment log
+
+- 2026-10-23: added the LinkedIn backup signal. Deployed to the NAS and verified (`status.json` carries `linkedin_backup`, the page serves the new row). The previous versions are kept on the NAS as `/volume1/docker/status-page/gather-status.py.bak-20261023` and `/volume1/docker/status-page/index.html.bak-20261023`; to roll back, copy them back over `gather-status.py` and `/volume1/web/index.html`.
+
 ## Rebuild
 
 ```sh

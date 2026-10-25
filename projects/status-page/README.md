@@ -14,6 +14,7 @@ The page shows six signals, each green/amber/red: Time Machine freshness (red af
 
 ## Deployment log
 
+- 2026-10-25: added the Kindle Words link tile (`100.126.55.95:8770`) and colored service icons, with a shared color for the Arr apps. The Containers section already discovers containers from `docker ps -a`; the live `status.json` includes `kindle-vocab` as running.
 - 2026-10-23: added the LinkedIn backup signal. Deployed to the NAS and verified (`status.json` carries `linkedin_backup`, the page serves the new row). The previous versions are kept on the NAS as `/volume1/docker/status-page/gather-status.py.bak-20261023` and `/volume1/docker/status-page/index.html.bak-20261023`; to roll back, copy them back over `gather-status.py` and `/volume1/web/index.html`.
 
 ## Rebuild

@@ -15,6 +15,7 @@ flowchart LR
     Amazon["Amazon Send-to-Kindle"]
     Ntfy["ntfy.sh"]
     OpenAI["ChatGPT Voice + Secure MCP Tunnel"]
+    Wiktionary["Wiktionary"]
   end
   subgraph OK040["OK040: DS225+, single drive"]
     Gluetun --> AirVPN
@@ -43,11 +44,13 @@ flowchart LR
     WT["Watchtower"] -->|alerts| Ntfy
     LL -->|EPUB check alert| Ntfy
     Status["Status page (Web Station)"]
+    KW["Kindle Words"] -->|definitions| Wiktionary
     Tunnel -.->|opens outbound tunnel| OpenAI
     OpenAI -->|MCP requests through tunnel| Tunnel
     Tunnel -->|private MCP request| Volition
   end
   CW -->|email| Infomaniak --> Amazon --> Kindle(["Kindle"])
+  Kindle -->|vocab.db over home Wi-Fi| KW
   Ntfy --> Phone(["Phone"])
   OK040 -->|Hyper Backup, Sundays| OK035[("OK035, remote Synology")]
 ```
@@ -64,6 +67,7 @@ flowchart LR
 | [tailscale-gateway](projects/tailscale-gateway/) | The NAS's Tailscale node (container, no Compose file on the NAS). |
 | [tailscale-access](projects/tailscale-access/) | Tailscale access policy notes: how OK040 and the remote backup target OK035 are reached. |
 | [status-page](projects/status-page/) | The Web Station homepage and the script that feeds its status section. |
+| [kindle-words](projects/kindle-words/) | Receives the jailbroken Kindle's Vocabulary Builder words and serves a word list and flashcard study app. Code lives in the separate `kindle` repo. |
 
 ## Where to reach things
 
@@ -83,6 +87,7 @@ The gateway page `http://100.126.55.95/` (Tailscale address; the NAS's LAN addre
 | 8080 | qBittorrent Web UI (published by Gluetun) | LAN and Tailscale |
 | 8989 / 7878 / 6767 / 9696 | Sonarr / Radarr / Bazarr / Prowlarr | LAN and Tailscale |
 | 8766 | Volition MCP | Tailscale address only |
+| 8770 | Kindle Words (upload needs a token; the app has no login) | LAN and Tailscale |
 | 8000 | Gluetun control server | the NAS itself only |
 
 The `volition-tunnel-client` publishes no inbound port. It maintains an outbound connection to OpenAI Secure MCP Tunnel, which lets ChatGPT Voice reach Volition. More detail, including the DSM-internal ports, is in [host → Network and services](projects/host/README.md#network-and-services) and the [Volition project notes](projects/volition/README.md).

@@ -1,0 +1,29 @@
+services:
+  kindle-vocab:
+    # python:3.12-alpine, pinned; stdlib only
+    image: python@sha256:b658b05ce9c4eb97ec6fc19424818a1f31993659c2b505a532f470e83807815d
+    container_name: kindle-vocab
+    command: python -u /app/server.py
+    user: '1026:100'
+    working_dir: /app
+    environment:
+      - TZ=Europe/Amsterdam
+      - SYNC_TOKEN=${SYNC_TOKEN:?set SYNC_TOKEN in .env}
+      - ALLOWED_HOSTS=192.168.178.110,100.126.55.95,ok040-gateway,ok040-gateway.tail4d7938.ts.net,localhost,127.0.0.1
+    volumes:
+      - /volume1/docker/kindle-vocab/app:/app:ro
+      - /volume1/docker/kindle-vocab/data:/data
+    # All interfaces: binding to the Tailscale IP fails if Tailscale is not up
+    # when Docker starts after a reboot. The NAS has only LAN and Tailscale.
+    ports:
+      - '8770:8770'
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 64
+    restart: always

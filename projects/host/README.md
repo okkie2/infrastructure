@@ -164,7 +164,7 @@ Plex Media Server runs as a DSM package, not a container, with libraries on `/vo
 
 ## Containers that exist on the NAS
 
-17 containers total: 16 in 6 Compose projects plus one GUI-created container (the Tailscale gateway).
+18 containers total: 17 in 7 Compose projects plus one GUI-created container (the Tailscale gateway).
 
 | Project | Containers | Folder in this repo |
 |---|---|---|
@@ -174,6 +174,7 @@ Plex Media Server runs as a DSM package, not a container, with libraries on `/vo
 | `jellyfin` | jellyfin | [jellyfin](../jellyfin/) |
 | `volition` | volition, volition-tunnel-client | [volition](../volition/) |
 | `watchtower` | watchtower | [watchtower](../watchtower/) |
+| `kindle-vocab` | kindle-vocab (started with `docker-compose` over SSH, not registered in Container Manager) | [kindle-words](../kindle-words/) |
 | none (GUI-created) | tailscale-tailscale-1 | [tailscale-gateway](../tailscale-gateway/) |
 
 Also on disk, not containers: `/volume1/docker/_scratch/genre-tagging` (one-off Python scripts used for the Jellyfin genre clean-up, see the Jellyfin README) and `/volume1/docker/BACKUP-INFRA-TODO.md` (an older working note, partly stale: it says the gateway IP changed to `100.122.65.70`, but the gateway is `100.126.55.95` again).
@@ -219,6 +220,7 @@ What listens (bind address in brackets; "all" means LAN and Tailscale):
 | 5432 | postgres | 127.0.0.1 | DSM's own database, not Immich's |
 | 2283, 5299, 6767, 7878, 8080, 8083, 8096, 8989, 9696 | docker-proxy | all | Immich, LazyLibrarian, Bazarr, Radarr, qBittorrent (published by Gluetun), Calibre-Web, Jellyfin, Sonarr, Prowlarr |
 | 8766 | docker-proxy | `100.126.55.95` | Volition MCP, Tailscale only; tunnel client has no published port |
+| 8770 | docker-proxy | all | Kindle Words (added 2026-10-25); bound to all interfaces on purpose, see [kindle-words](../kindle-words/README.md#security) |
 | 8000 | docker-proxy | 127.0.0.1 | Gluetun control server |
 | 32400 | Plex Media Server | all | Plex; 32401, 32600 and the "Plex Script Host" ports are local |
 | 45139, 61465 | tailscaled | `100.126.55.95` / IPv6 | Tailscale itself |
@@ -288,6 +290,7 @@ No failures at danger or risk level; the status page shows 4 warnings, which are
 | `/volume1/docker/gluetun/.env` | `WIREGUARD_PRIVATE_KEY`, `WIREGUARD_PRESHARED_KEY`, `WIREGUARD_ADDRESSES`, `NORDVPN_WIREGUARD_PRIVATE_KEY` |
 | `/volume1/docker/immich/.env` | `DB_PASSWORD` |
 | `/volume1/homes/master/volition-deploy/secrets/` | `volition-authorization`, `openai-runtime-key` |
+| `/volume1/docker/kindle-vocab/.env` | `SYNC_TOKEN` (also on the Kindle in `/var/local/vocab-sync/config`); mode 600 |
 | Tailscale gateway container | `TS_AUTHKEY` |
 | Watchtower compose | ntfy topic name (treated as private) |
 | `/volume1/docker/lazylibrarian/config/kindle-check.conf` | `NTFY_URL` (the same ntfy topic); git-ignored, mode 640 |

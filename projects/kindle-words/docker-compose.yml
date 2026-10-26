@@ -11,7 +11,7 @@ services:
       - SYNC_TOKEN=${SYNC_TOKEN:?set SYNC_TOKEN in .env}
       # Optional: without it, definitions come from Wiktionary only
       - MW_KEY=${MW_KEY:-}
-      - ALLOWED_HOSTS=192.168.178.110,100.126.55.95,ok040-gateway,ok040-gateway.tail4d7938.ts.net,localhost,127.0.0.1
+      - ALLOWED_HOSTS=192.168.178.110,100.126.55.95,ok040-gateway,ok040-gateway.tail4d7938.ts.net,kb-bnjx.tail4d7938.ts.net,localhost,127.0.0.1
     volumes:
       - /volume1/docker/kindle-vocab/app:/app:ro
       - /volume1/docker/kindle-vocab/data:/data
@@ -27,5 +27,35 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 256m
+    pids_limit: 64
+    restart: always
+
+  # Serves Kibble over HTTPS on the tailnet only (no Funnel), for the iPhone
+  # app. A Tailscale node of its own with a neutral name, so only
+  # "kb-bnjx.tail4d7938.ts.net" appears in public certificate logs, not the
+  # NAS's names. Userspace networking: no TUN device, no capabilities, and no
+  # clash with the NAS's own Tailscale gateway.
+  kindle-vocab-ts:
+    # tailscale/tailscale:stable, pinned (same image as the NAS gateway)
+    image: tailscale/tailscale@sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d
+    container_name: kindle-vocab-ts
+    hostname: kb-bnjx
+    environment:
+      - TS_HOSTNAME=kb-bnjx
+      # Only needed for the first login (a single-use key for tag:kibble);
+      # TS_AUTH_ONCE keeps the saved login, so remove the key afterwards.
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      - TS_AUTH_ONCE=true
+      - TS_USERSPACE=true
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - /volume1/docker/kindle-vocab/tailscale:/var/lib/tailscale
+      - /volume1/docker/kindle-vocab/app/tailscale-serve.json:/config/serve.json:ro
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
     pids_limit: 64
     restart: always

@@ -15,6 +15,7 @@ The source code, the Kindle scripts and the jailbreak notes live in the **`kindl
 | Data | `/volume1/docker/kindle-vocab/data` (see below) |
 | Secret | `SYNC_TOKEN` in `/volume1/docker/kindle-vocab/.env` (mode 600); the same value is on the Kindle in `/var/local/vocab-sync/config` |
 | Secret | `MW_KEY` (Merriam-Webster Collegiate API key, free non-commercial) in the same `.env`; optional, without it definitions come from Wiktionary only |
+| Secret | Tailscale login of node `kb-bnjx` (tag:kibble, service `kindle-vocab-ts`, HTTPS for the iPhone app) in `/volume1/docker/kindle-vocab/tailscale` (root, 700); re-enrol with a single-use `TS_AUTHKEY`, see the kindle repo README "iPhone app" |
 | Logs | `sudo /usr/local/bin/docker logs kindle-vocab` |
 
 ## Data

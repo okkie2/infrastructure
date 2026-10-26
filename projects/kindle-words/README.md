@@ -2,7 +2,7 @@
 
 Learn the words looked up on the Kindle. A jailbroken Kindle Paperwhite 5 uploads its Vocabulary Builder database over Wi-Fi; this container stores it and serves a small web app with a word list and flashcard study (Anki-style SM-2 scheduling, Wiktionary definitions, browser pronunciation). It works on phone and desktop.
 
-The source code, the Kindle scripts and the jailbreak notes live in the **`kindle` repository** (`~/Code/kindle`), which is canonical; this folder records how it runs on OK040. Deployed on 2026-10-25.
+The source code, the Kindle scripts and the jailbreak notes live in the **`kibble` repository** (`~/Code/kibble`, formerly `kindle`), which is canonical; this folder records how it runs on OK040. Deployed on 2026-10-25.
 
 | Item | Value |
 |---|---|

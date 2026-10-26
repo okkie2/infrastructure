@@ -9,6 +9,8 @@ services:
     environment:
       - TZ=Europe/Amsterdam
       - SYNC_TOKEN=${SYNC_TOKEN:?set SYNC_TOKEN in .env}
+      # Optional: without it, definitions come from Wiktionary only
+      - MW_KEY=${MW_KEY:-}
       - ALLOWED_HOSTS=192.168.178.110,100.126.55.95,ok040-gateway,ok040-gateway.tail4d7938.ts.net,localhost,127.0.0.1
     volumes:
       - /volume1/docker/kindle-vocab/app:/app:ro

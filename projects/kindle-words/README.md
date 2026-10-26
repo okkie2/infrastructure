@@ -14,6 +14,7 @@ The source code, the Kindle scripts and the jailbreak notes live in the **`kindl
 | Runs as | uid 1026 (`master`), gid 100; read-only root, `cap_drop: ALL`, `no-new-privileges`, 256 MB, 64 processes |
 | Data | `/volume1/docker/kindle-vocab/data` (see below) |
 | Secret | `SYNC_TOKEN` in `/volume1/docker/kindle-vocab/.env` (mode 600); the same value is on the Kindle in `/var/local/vocab-sync/config` |
+| Secret | `MW_KEY` (Merriam-Webster Collegiate API key, free non-commercial) in the same `.env`; optional, without it definitions come from Wiktionary only |
 | Logs | `sudo /usr/local/bin/docker logs kindle-vocab` |
 
 ## Data

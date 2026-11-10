@@ -1,7 +1,36 @@
-# Secrets: WireGuard keys and compose environment files
+# Operating-system and editor files
+.DS_Store
+**/.DS_Store
+
+# Local runtime and generated files
+**/__pycache__/
+*.py[cod]
+*.log
+
+# OpenTofu local data, state, and saved plans
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+
+# Secrets and private credentials
 .env
+.env.*
 *.env
 *.conf
-wireguard*
+!.env.example
+!*.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+vault-password-file*
+*vault-pass*
 privatekey*
-.DS_Store
+wireguard*

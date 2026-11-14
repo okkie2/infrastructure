@@ -1,104 +1,113 @@
+---
+title: "Operations: ubuntu-4gb-hel1-1"
+created: unknown
+created_by: unknown
+creation_reason: "Record the Hetzner server's verified state and the path to reproducible management."
+purpose: "Current operations record for ubuntu-4gb-hel1-1: sources of truth, verified state, runbook, and recovery."
+provenance:
+  type: mixed
+  description: "Verified-state tables are first-hand observations from read-only CLI, SSH and console checks on 10 and 14 November 2026. The management split and procedures are interpretation based on the cited vendor documentation."
+  sources:
+    - reference: "../ansible/"
+      description: "Host configuration as code."
+    - reference: "../opentofu/"
+      description: "Hetzner resources as code."
+    - reference: "https://docs.hetzner.com/cloud/firewalls/faq/"
+      description: "Cloud Firewall behaviour."
+    - reference: "https://docs.docker.com/engine/network/packet-filtering-firewalls/"
+      description: "Docker bypassing host firewalls."
+ai:
+  involvement: drafting
+  description: "Earlier versions' authorship is not recorded. The 14 November 2026 update was drafted by Claude Code from the commands it ran during provisioning."
+updated: "2026-11-14"
+updated_by: "Claude Code (Opus 5.5)"
+update_reason: "Host hardened, adopted into OpenTofu, configured with Ansible, and the Caddy plus PostgreSQL platform deployed; recorded the verified state, added a runbook, and applied QA and security review remediation."
+---
+
 # Operations: ubuntu-4gb-hel1-1
 
-This is the server's current operations record and the proposed path to reproducible management. It separates verified state from future plans. Secret values are never stored here.
+This is the server's operations record. It separates verified state from plans and never stores secret values.
 
 ## Layout and sources of truth
 
-| Component | Location/input | Source of truth | Recovery |
+| Component | Location | Source of truth | Recovery |
 | --- | --- | --- | --- |
-| Hetzner infrastructure | Hetzner Cloud project `default`; server `ubuntu-4gb-hel1-1` | Hetzner account and, when adopted, OpenTofu state/configuration | Import and reconcile existing resources, or recreate from reviewed OpenTofu config |
-| Server configuration | Ubuntu 26.04.1 on the VPS | Proposed Ansible inventory and playbooks; currently partly manual | Reapply reviewed playbooks over verified SSH |
-| Bootstrap | Hetzner `user_data` / cloud-init on a future create or rebuild | Versioned cloud-init template, with no secrets | Create a limited admin and install its public key, then hand off to Ansible |
-| Application runtime | Docker Engine and Compose on the VPS | Not installed yet; planned application repositories and Compose files | Install from supported instructions, then deploy the pinned image and Compose project |
-| Application configuration | Per-app runtime configuration, outside source repositories | Deployment configuration; schema/examples in app repositories | Recreate from documented variable names and password-manager items |
-| Secrets | Password manager; exact items/values are not recorded here | Proton Pass is the user's preferred source of truth | Recover vault access, then provision only required values to the server |
-| Application data | No production containers or data are present yet | Future persistent host paths / Docker volumes | Consistent database and volume backup, followed by a restore test |
-| Logs and caches | Ubuntu system logs; no Docker logs yet | OS/runtime configuration | Recreate caches; retain bounded operational logs as needed |
+| Hetzner resources | Project `default`: server, two primary IPs, firewall `prod-ingress` | [`hetzner/opentofu`](../opentofu/); state is local on the Mac and not in Git | `tofu plan`/`apply`. If state is lost, re-import with [`imports.tf`](../opentofu/imports.tf). |
+| Host configuration | Ubuntu 26.04.1 | [`hetzner/ansible`](../ansible/) | `ansible-playbook site.yml` |
+| Platform runtime | `/srv/platform`: Caddy and PostgreSQL via Docker Compose | `ansible/roles/platform` templates | Rerun the `platform` tag |
+| Apps | `/srv/apps/<app>` | Each app's repository, plus `platform_apps` in Ansible | [Add an app](../apps.md) |
+| Secrets | Proton Pass; generated host secrets under `/srv/**/secrets/` (root or postgres-owned, 0400 or 0600) | Proton Pass | Recover the vault, then reprovision |
+| Data | Docker volume `platform_postgres_data`; Caddy certificates in `platform_caddy_data` | Host only, not yet backed up | Synology backup is planned; see the [TODO](../TODO.md) |
+| Logs | journald; Docker `local` log driver, 3 × 10 MB per container | OS and Docker configuration | Rebuildable |
 
-The workspace root `Infrastruture/` is not currently a Git repository. The `synology-nas/` subfolder is a separate repository. Before adding OpenTofu state, Ansible inventory or playbooks, create a dedicated Git repository for `hetzner/`. The initial state-storage proposal is local state on the Mac, provided FileVault is enabled and state backups are encrypted; exclude state, plans, `.terraform/`, credentials and secrets from Git. Revisit a remote locked backend before running OpenTofu from multiple machines or automation. Do not commit private keys, passwords, API tokens, runtime secrets or OpenTofu state files.
+## Verified state: 14 November 2026
 
-## Verified live state — 10 November 2026
-
-Checked through Hetzner's read-only CLI, SSH and the Ubuntu console:
-
-This is still a bare Ubuntu server: no applications, Docker containers or production data have been deployed. Current access consists of the Ubuntu root password, the Mac's installed SSH public key, and the local Hetzner CLI context.
+Verified by commands run from the Mac during and after provisioning.
 
 | Item | Verified state |
 | --- | --- |
-| Hetzner resource | Server ID `175269905`, name `ubuntu-4gb-hel1-1`, type CX23, Helsinki (`hel1`), 2 shared vCPU, 4 GB RAM, 40 GB disk |
-| Operating system | Ubuntu 26.04.1 LTS, x86_64 |
-| Public network | IPv4 `37.27.251.21`; IPv6 prefix `2a01:4f9:c015:84a6::/64` |
-| Rescue recovery | Root password was set inside the mounted Ubuntu system using Hetzner's documented Rescue/chroot procedure; Ubuntu root login then succeeded. See [rescue.md](rescue.md). |
-| Ubuntu root password | Changed again with `passwd` from the Ubuntu root shell. Its value is intentionally absent here. Save and manage it in Proton Pass; confirm the current item there. |
-| SSH host identity | ED25519 fingerprint verified against both the Ubuntu console output and SSH's presented key: `SHA256:DeixvRwYazTkhYE0lg3k30m9f8C3efUKmbBDcwYwvTc`. Reverify after a rebuild or host-key rotation. |
-| SSH access | Mac public key `~/.ssh/id_ed25519.pub` was installed for `root` with `ssh-copy-id`; a fresh key-based SSH command returned `root`. The private key stays on the Mac. |
-| SSH authentication policy | `sshd -T` reports `permitrootlogin yes`, `pubkeyauthentication yes`, and `passwordauthentication yes`. Root password SSH remains enabled; key installation did not disable it. |
-| Hetzner Cloud Firewall | None attached; `hcloud firewall list` returned no firewalls. |
-| Ubuntu UFW | Inactive (`ufw status verbose`). |
-| Listening public services | SSH on TCP 22 for IPv4 and IPv6. No web or database listener was present. |
-| Docker / Compose | Docker command absent; service inactive. Docker and Compose are not installed. |
-| Hetzner backups | Disabled. |
+| Hetzner resource | ID `175269905`, CX23, `hel1`, 2 vCPU, 4 GB RAM, 40 GB disk. Labels `environment=prod` and `managed_by=opentofu`. **Delete and rebuild protection on.** |
+| Public addresses | IPv4 `37.27.251.21` (primary IP `161396837`) and IPv6 `2a01:4f9:c015:84a6::/64` (`161396838`). Both have `auto_delete=false` and delete protection, so they outlive the server. |
+| OpenTofu | All three resources imported. The firewall and its attachment were created by OpenTofu. A follow-up `tofu plan` reports no changes. |
+| Cloud Firewall | `prod-ingress` (ID `12055976`) is attached and `applied`. Inbound allows only ICMP and UDP 41641 (Tailscale direct). No SSH, no web yet, no outbound rules. Public TCP 22 times out on IPv4 and IPv6. |
+| Admin access | User `joost`, key-only (password locked), passwordless sudo, not in the `docker` group. Reached over Tailscale only: `ssh joost@ubuntu-4gb-hel1-1.tail4d7938.ts.net`. |
+| SSH policy | `/etc/ssh/sshd_config.d/00-hardening.conf`; cloud-init's `50-cloud-init.conf` was removed. `sshd -T` shows `permitrootlogin no`, `passwordauthentication no`, `kbdinteractiveauthentication no`, `authenticationmethods publickey`, `allowusers joost`. Root-by-key and unknown users are refused. |
+| SSH host key | ED25519 `SHA256:DeixvRwYazTkhYE0lg3k30m9f8C3efUKmbBDcwYwvTc`, unchanged and seen identically over the tailnet |
+| Tailscale | Node `ubuntu-4gb-hel1-1`, `100.105.28.57`, tag `tag:hetzner-prod`, key expiry disabled (tagged). Routes, DNS and Tailscale SSH are not accepted. The join used a single-use key (`tag:hetzner-prod`), which the Tailscale console showed as invalidated on 14 November 2026, with no valid auth keys left. The playbook passes keys through a root-only file, never a command line. |
+| Tailnet policy | Grant: `joost.okkinga@gmail.com` → `tag:hetzner-prod` on tcp 22 and 443. No rule lets the tag initiate connections. From the server, the Mac, `ok040-gateway` (22, 445) and `kb-bnjx` (22) all time out. |
+| Root password | Kept as break-glass for the Hetzner web console. The owner confirmed the console login works on 14 November 2026. |
+| Updates | `unattended-upgrades` enabled (security pocket by default) |
+| Docker | Docker CE 29.9.3, Compose v5.7.1; `daemon.json` sets the `local` log driver (10m × 3) and `live-restore` |
+| Platform | Compose project `platform`: `caddy:2.11.9` publishes 80/443 (TCP and UDP) and is closed by the Cloud Firewall; `postgres:18.7` is healthy with no published port. They share no network: Caddy is on `platform_default`, PostgreSQL on internal networks only. Config directories, not single files, are mounted so updates take effect. Memory limits: Caddy 256 MB, PostgreSQL 1 GB. |
+| PostgreSQL auth | Managed `pg_hba.conf`. Inside the container, local and loopback connections are `trust`, which needs root on the host. The `postgres` superuser is rejected from any network, verified. Other network connections use `scram-sha-256`; a wrong password is refused. `PUBLIC` has no access to app databases or `postgres`. |
+| Per-app path | Tested end to end with a throwaway app `smoke`, then removed:<br>- declared through `platform_apps`; check mode was clean and a second apply showed `changed=0`;<br>- a non-root, read-only container read its 0400 password file and wrote to its database;<br>- its web network cannot resolve PostgreSQL, and its role cannot open `postgres`;<br>- Caddy served it over HTTPS on the tailnet;<br>- a reserved name (`postgres`) was refused. |
+| Ansible | `--check --diff` runs cleanly. Full `site.yml` over the tailnet path, twice after the final change: `changed=0` both times. |
+| Capacity after deploy | About 3.0 GB of RAM available; disk 3.4 of 38 GB used |
+| Backups | Hetzner backups off by owner decision. A one-off pre-hardening snapshot was taken and deleted after verification. No data backups yet. |
 
-No firewall, backup setting, package installation, non-root account, or application deployment was changed during these checks. The root password and `ssh-copy-id` key installation were changed by the owner as recorded above.
+The 10 November 2026 baseline was: root password SSH open to the internet, no firewall, no Docker. The journal back to creation (9 November) showed tens of thousands of failed password attempts and no successful login from any address other than the owner's.
 
-## Work completed
+## Runbook
 
-1. Created the Hetzner CX23 Ubuntu server and recorded its current resources and location.
-2. Recovered Ubuntu root access from Rescue after the Hetzner web console did not paste the password with `Cmd+V`; the Rescue keyboard used Finnish layout. The exact recovery sequence and key positions are in [rescue.md](rescue.md).
-3. Changed the Ubuntu root password from the logged-in Ubuntu root shell. The secret value is not recorded.
-4. Verified the SSH host fingerprint, installed the Mac's public key for root, and successfully tested a new key-based SSH connection.
-5. Inspected UFW, Docker/Compose, listening ports, Hetzner Cloud Firewalls and provider backups. Current results are listed above.
+**Host configuration**, from `hetzner/ansible`:
 
-## Recommended management split
+```sh
+ansible-playbook site.yml --check --diff     # preview
+ansible-playbook site.yml                    # apply; expect changed=0 when nothing drifted
+ansible-playbook site.yml --tags platform    # platform and app declarations only
+```
 
-The proposed split is sound for this server. Because it currently has no application data, there is still a straightforward opportunity to adopt the existing VPS into OpenTofu now. Importing preserves the server and its current IPs; it does not create a new server or automatically generate the final configuration. Add matching resource blocks, import the existing resource IDs, then review `tofu plan` for any proposed replacement or unrelated changes before applying. Recreating from OpenTofu is also possible, but needs a deliberate IP-retention decision and a rebuild; it is not required just to gain reproducibility.
+**Hetzner resources**, from `hetzner/opentofu`. The stored `hcloud` context is read-only. For an apply, create a short-lived read-write token in the Hetzner console, keep it in Proton Pass, export it as `HCLOUD_TOKEN`, and revoke it afterwards.
 
-| Tool | Responsibility | Appropriate use here |
-| --- | --- | --- |
-| OpenTofu + Hetzner provider | Cloud resources: server, IPs, networks, Cloud Firewall, labels and backup settings | Import/adopt the existing server and any separately managed primary IPs into reviewed state. Review every plan for replacement/deletion before apply. Keep state private; it can contain sensitive values. |
-| cloud-init | One-time first-boot bootstrap | On a future creation/rebuild, create a limited admin account and install its public SSH key. Keep bootstrap small; it is not the ongoing configuration manager. |
-| Ansible | Repeatable host configuration | Install security updates, create users and sudo policy, harden SSH, configure the host firewall, install Docker/Compose, prepare directories and logging. Prefer idempotent modules and validate each playbook before applying. |
-| Docker Compose | Per-application runtime and data wiring | Keep app services, internal networks and persistent volumes in the relevant app repository. Publish only the reverse proxy's intended public ports; keep PostgreSQL private. |
+```sh
+tofu plan -out=plan.tfplan     # check: 0 to destroy, no "must be replaced"
+tofu apply plan.tfplan
+rm plan.tfplan
+```
 
-Ansible is appropriate for repeatable configuration because its modules generally check whether the target state is already in place. Idempotency is a property to verify in each playbook, not an automatic guarantee for arbitrary shell commands. OpenTofu also tracks state: never put its state in Git, and treat it as sensitive. The Hetzner provider documents that `user_data` is cloud-init input and that changing injected SSH-key selections can require server replacement; account for the already-running server before managing those fields.
+**Rebuild from scratch: outline only, not yet rehearsed.** This is a TODO item. The code does not yet support it unattended. Known requirements:
+1. **OpenTofu:** remove delete and rebuild protection and `prevent_destroy` deliberately. Add `public_net` pointing at the protected primary IPs so the new server keeps its addresses. Add an `ssh_keys` entry (or cloud-init) so root can log in for the bootstrap. If state was lost, also import firewall `12055976`.
+2. **Remove the old node** from the tailnet so the new one gets the name `ubuntu-4gb-hel1-1`.
+3. **Bootstrap SSH path:** add a firewall rule allowing SSH from your current IP only (rather than detaching the firewall), and remove the old host key from `~/.ssh/known_hosts`.
+4. **Bootstrap run:** `TS_AUTHKEY=<new tagged single-use key> ansible-playbook site.yml -e ansible_host=<public IP> -e ansible_user=root -e ssh_hardening_enabled=false`
+5. **Verify** `ssh joost@ubuntu-4gb-hel1-1.tail4d7938.ts.net` and `sudo -v`. Then run the playbook normally, remove the temporary SSH rule, and restore data.
 
-The existing Hetzner API token is read-only. Keep using it for inventory and read-only planning. Create a separate project-scoped Read & Write token only when a reviewed OpenTofu plan is ready to change Hetzner resources; load it through the environment/password manager, not source files. The token value itself is not recorded here. State can contain sensitive resource attributes even when provider credentials are supplied separately.
+**Lockout recovery:** use the Hetzner web console with the root password. If that fails, use Rescue; see [rescue.md](rescue.md). Root SSH is disabled, but local console login is not.
 
-For the first security baseline, configure the **Hetzner Cloud Firewall** as the public ingress boundary. Do not add custom outbound rules initially: Hetzner changes outbound traffic to implicit deny when custom egress rules are present. Determine the SSH source policy before applying ingress rules. The current server allows root password SSH, so do not expose port 22 broadly until password login is disabled or SSH is restricted to a trusted source. Add public TCP 80/443 only when the reverse proxy and applications are ready. Never publish PostgreSQL port 5432 publicly.
+## Security notes
 
-Docker's published ports can bypass UFW rules, so do not rely on UFW alone to protect published containers. Enforce public ingress at the Hetzner firewall and restrict Compose port publishing to the reverse proxy; if host-level filtering is also needed, design it with Docker's packet-filtering behavior in mind.
-
-## Deployment and rollback
-
-No application deployment or rollback procedure is active yet. The workspace design proposes building immutable images in CodeFloe, recording each digest, and deploying the same tested digest through Docker Compose. The application repositories should own their `Dockerfile`, Compose definition and safe configuration examples. Keep runtime secrets outside Git and images. Before a release, back up persistent data; check health and preserve the previous image digest for application rollback. Database migrations need a separate compatibility and recovery plan.
-
-## Configuration and secrets
-
-- Keep the Hetzner API token in Proton Pass and the local `hcloud` CLI context. The token value is not recorded.
-- Keep the root password in Proton Pass; do not copy it into this document, cloud-init, Ansible variables, OpenTofu state or shell history.
-- Keep the Mac private SSH key at its existing local path. Only the public key belongs on the server.
-- Future Ansible secrets should use a protected secret mechanism (for example, Ansible Vault or controlled runtime injection). Do not commit vault passwords.
-- Future app secret names and safe defaults belong in each app repository; values belong in the password manager/runtime.
-
-## Backup and restore
-
-- **Current state:** Hetzner backups are disabled; no application data exists yet.
-- **Target:** versioned, consistent PostgreSQL exports and required persistent files copied encrypted to the Synology over a private route, with independent retention and failure alerts.
-- **Restore:** restore to an isolated target first; verify database integrity and an application read/write check before any production replacement.
-- **Trial:** none has been performed. Do not claim recoverability until a restore has succeeded and its date/evidence are recorded.
+- Docker-published ports bypass any host firewall. The Hetzner Cloud Firewall is the public boundary, and only Caddy may publish ports.
+- The Cloud Firewall does not filter tailnet traffic. Tailnet exposure is governed by the tailnet policy above.
+- Passwordless sudo means the admin SSH key is the only barrier to root. Moving to password sudo is a tracked follow-up.
 
 ## Outstanding work
 
-Track remaining work in the [Hetzner TODO](../TODO.md), which is the canonical checklist for this environment.
+Track remaining work in the [Hetzner TODO](../TODO.md).
 
 ## References
 
-- [Architecture](../../architectuur_codefloe_synology_hetzner.md)
-- [Implementation plan](../../implementatieplan_codefloe_synology_hetzner.md)
-- [Hetzner Cloud Firewall behavior](https://docs.hetzner.com/cloud/firewalls/faq/)
-- [Hetzner Cloud provider server resource](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server)
-- [OpenTofu provider versions and lock file](https://opentofu.org/docs/language/providers/)
+- [Hetzner Cloud Firewall behaviour](https://docs.hetzner.com/cloud/firewalls/faq/)
+- [Hetzner Cloud provider: server resource](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server)
 - [OpenTofu sensitive state](https://opentofu.org/docs/language/state/sensitive-data/)
-- [Ansible idempotency](https://docs.ansible.com/projects/ansible-core/2.13/user_guide/playbooks_intro.html)
-- [Docker and host firewall behavior](https://docs.docker.com/engine/network/packet-filtering-firewalls/)
-- [Docker Compose](https://docs.docker.com/compose/)
+- [Docker and host firewall behaviour](https://docs.docker.com/engine/network/packet-filtering-firewalls/)
+- [Tailscale tags](https://tailscale.com/kb/1068/tags)

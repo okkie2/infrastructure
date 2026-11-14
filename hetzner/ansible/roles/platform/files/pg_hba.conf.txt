@@ -1,0 +1,10 @@
+# Managed by Ansible (hetzner/ansible/roles/platform). Do not edit on the host.
+# TYPE  DATABASE  USER      ADDRESS        METHOD
+# Inside the container only (needs root on the host via docker exec).
+local   all       all                      trust
+host    all       all       127.0.0.1/32   trust
+host    all       all       ::1/128        trust
+# The superuser never logs in over a Docker network.
+host    all       postgres  all            reject
+# Apps: password (SCRAM) only, never trust.
+host    all       all       all            scram-sha-256

@@ -1,0 +1,14 @@
+# Managed by Ansible (hetzner/ansible/roles/platform). Do not edit on the host.
+{
+{% if caddy_acme_email %}
+	email {{ caddy_acme_email }}
+{% endif %}
+	admin localhost:2019
+}
+{% for app in platform_apps %}
+
+{{ app.domain }} {
+	encode zstd gzip
+	reverse_proxy {{ app.upstream }}
+}
+{% endfor %}

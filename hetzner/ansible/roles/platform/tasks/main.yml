@@ -1,0 +1,147 @@
+- name: Validate app declarations
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[a-z][a-z0-9_]{0,40}$')
+      - item.domain is match('^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$')
+      # The alias must carry the app's own name so one app cannot claim another's traffic.
+      - item.upstream is match('^' ~ (item.name | replace('_', '-')) ~ '-[a-z0-9-]+:[0-9]{1,5}$')
+      - item.name not in ['postgres', 'template0', 'template1', 'public', 'platform', 'caddy']
+      - not item.name.startswith('pg_')
+      - platform_apps | map(attribute='name') | select('equalto', item.name) | list | length == 1
+      - platform_apps | map(attribute='upstream') | map('regex_replace', ':.*$', '') | select('equalto', item.upstream | regex_replace(':.*$', '')) | list | length == 1
+      - (item.uid | default(0) | int) >= 0
+    fail_msg: "Invalid platform_apps entry {{ item.name | default('?') }}; see hetzner/apps.md"
+  loop: "{{ platform_apps }}"
+  loop_control: { label: "{{ item.name | default('?') }}" }
+
+- name: Create platform and app directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ platform_root }}"
+    - "{{ platform_root }}/secrets"
+    - "{{ apps_root }}"
+
+- name: Create per-app directories
+  ansible.builtin.file:
+    path: "{{ apps_root }}/{{ item.name }}/secrets"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop: "{{ platform_apps }}"
+  loop_control: { label: "{{ item.name }}" }
+
+- name: Check whether the Postgres superuser password exists
+  ansible.builtin.stat:
+    path: "{{ platform_root }}/secrets/postgres_password"
+  register: pg_secret
+
+# Generated on the host, never in Git or Ansible output. Copy it to Proton Pass once.
+- name: Generate the Postgres superuser password
+  ansible.builtin.shell: umask 077 && openssl rand -base64 33 | tr -d '\n' > {{ platform_root }}/secrets/postgres_password
+  when: not pg_secret.stat.exists
+  no_log: true
+
+- name: Check whether app database passwords exist
+  ansible.builtin.stat:
+    path: "{{ apps_root }}/{{ item.name }}/secrets/db_password"
+  loop: "{{ platform_apps }}"
+  loop_control: { label: "{{ item.name }}" }
+  register: app_secrets
+
+- name: Generate app database passwords
+  ansible.builtin.shell: umask 077 && openssl rand -hex 32 > {{ apps_root }}/{{ item.item.name }}/secrets/db_password
+  when: not item.stat.exists
+  loop: "{{ app_secrets.results }}"
+  loop_control: { label: "{{ item.item.name }}" }
+  no_log: true
+
+# Compose file secrets are plain bind mounts: the file's owner must be the uid the app runs as.
+- name: Restrict app database passwords to the app's container user
+  ansible.builtin.file:
+    path: "{{ apps_root }}/{{ item.name }}/secrets/db_password"
+    owner: "{{ item.uid | default(0) }}"
+    group: "{{ item.uid | default(0) }}"
+    mode: "0400"
+  loop: "{{ platform_apps }}"
+  loop_control: { label: "{{ item.name }}" }
+  when: not ansible_check_mode
+
+# Postgres (uid 999 in the Debian image) reads its secret file after dropping root.
+- name: Restrict the Postgres secret to the postgres container user
+  ansible.builtin.file:
+    path: "{{ platform_root }}/secrets/postgres_password"
+    owner: "999"
+    group: "999"
+    mode: "0400"
+  when: pg_secret.stat.exists or not ansible_check_mode
+
+# Directory mounts (not single files) so in-place updates reach the running containers.
+- name: Make the platform config directories readable by the containers
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: ["{{ platform_root }}/caddy", "{{ platform_root }}/postgres"]
+
+- name: Write the platform Compose file
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ platform_root }}/compose.yaml"
+    mode: "0640"
+  register: platform_compose
+
+- name: Write the Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ platform_root }}/caddy/Caddyfile"
+    mode: "0644"
+  register: caddyfile
+
+- name: Write the Postgres client-authentication rules
+  ansible.builtin.copy:
+    src: pg_hba.conf.txt
+    dest: "{{ platform_root }}/postgres/pg_hba.conf"
+    mode: "0644"
+  register: pg_hba
+
+- name: Write the database provisioning SQL
+  ansible.builtin.template:
+    src: provision-app-db.sql.j2
+    dest: "{{ platform_root }}/provision-app-db.sql"
+    mode: "0640"
+
+- name: Start the platform
+  ansible.builtin.command: docker compose --project-directory {{ platform_root }} up --detach --wait --remove-orphans
+  register: compose_up
+  changed_when: "'Started' in compose_up.stderr or 'Recreated' in compose_up.stderr or 'Created' in compose_up.stderr"
+
+# The Caddyfile directory (not the file) is mounted, so the container sees the new file.
+- name: Reload Caddy after a Caddyfile change
+  ansible.builtin.command: docker compose --project-directory {{ platform_root }} exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+  when: caddyfile.changed
+
+- name: Reload Postgres after an authentication-rule change
+  ansible.builtin.command: docker compose --project-directory {{ platform_root }} exec -T postgres psql -U postgres -tAc "select pg_reload_conf()"
+  when: pg_hba.changed
+
+# Idempotent: creates or updates each app's role and database; reports changes via a NOTICE.
+# The password goes in on stdin (printf is a shell builtin), so it never appears in a process list.
+- name: Provision app databases and roles
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: >-
+      { printf "\\set app '%s'\n\\set pw '%s'\n" '{{ item.name }}' "$(cat {{ apps_root }}/{{ item.name }}/secrets/db_password)";
+      cat {{ platform_root }}/provision-app-db.sql; }
+      | docker compose --project-directory {{ platform_root }} exec -T postgres
+      psql -v ON_ERROR_STOP=1 -U postgres -d postgres
+  loop: "{{ platform_apps }}"
+  loop_control: { label: "{{ item.name }}" }
+  register: db_provision
+  changed_when: "'CHANGED' in db_provision.stderr"
+  no_log: true

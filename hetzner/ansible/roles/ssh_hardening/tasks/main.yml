@@ -1,0 +1,43 @@
+- name: Skip SSH hardening until tailnet admin access is verified
+  ansible.builtin.meta: end_role
+  when: not ssh_hardening_enabled | bool
+
+- name: Refuse to harden when the administrator has no key
+  ansible.builtin.stat:
+    path: "/home/{{ admin_user }}/.ssh/authorized_keys"
+  register: admin_keys
+  failed_when: not admin_keys.stat.exists or admin_keys.stat.size == 0
+
+# sshd uses the first value it reads; 00- sorts before cloud-init's 50-cloud-init.conf.
+- name: Install the SSH hardening drop-in
+  ansible.builtin.template:
+    src: sshd-hardening.j2
+    dest: /etc/ssh/sshd_config.d/00-hardening.conf
+    mode: "0644"
+  notify: Reload ssh
+
+- name: Remove cloud-init's password-authentication override
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+    state: absent
+  notify: Reload ssh
+
+# Validate the combined configuration before the handler reloads sshd.
+- name: Validate the full sshd configuration
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false
+  check_mode: false
+
+- name: Read the effective sshd settings
+  ansible.builtin.command: /usr/sbin/sshd -T -C user={{ admin_user }},host=localhost,addr=127.0.0.1
+  register: sshd_effective
+  changed_when: false
+  check_mode: false
+
+- name: Assert root and password login are off
+  ansible.builtin.assert:
+    that:
+      - "'permitrootlogin no' in sshd_effective.stdout_lines"
+      - "'passwordauthentication no' in sshd_effective.stdout_lines"
+      - "'kbdinteractiveauthentication no' in sshd_effective.stdout_lines"
+# The root password stays set on purpose: it is the Hetzner console break-glass login.

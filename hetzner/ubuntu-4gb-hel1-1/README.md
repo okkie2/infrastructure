@@ -4,7 +4,7 @@ Hetzner Cloud server in Helsinki. Keep server-specific operating notes and recov
 
 ## Operations
 
-- [Current state and reproducible setup plan](operations.md): verified access, firewall, Docker and backup state; proposed OpenTofu, cloud-init, Ansible and Compose responsibilities.
+- [Operations](operations.md): verified state (hardened, Tailscale-only SSH, Cloud Firewall, Docker, Caddy and PostgreSQL platform), runbook and rebuild procedure.
 
 ## Procedures
 

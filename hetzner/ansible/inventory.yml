@@ -1,0 +1,7 @@
+all:
+  hosts:
+    prod:
+      # Normal path: the server's Tailscale MagicDNS name, as the admin user.
+      # First bootstrap only: see the rebuild procedure in ../ubuntu-4gb-hel1-1/operations.md
+      ansible_host: ubuntu-4gb-hel1-1.tail4d7938.ts.net
+      ansible_user: "{{ admin_user }}"

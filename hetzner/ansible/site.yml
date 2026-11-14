@@ -1,0 +1,10 @@
+- name: Configure the production host
+  hosts: prod
+  become: true
+  roles:
+    - { role: base, tags: [base] }
+    - { role: admin, tags: [admin] }
+    - { role: tailscale, tags: [tailscale] }
+    - { role: ssh_hardening, tags: [ssh] }
+    - { role: docker, tags: [docker] }
+    - { role: platform, tags: [platform] }

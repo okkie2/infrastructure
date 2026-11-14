@@ -1,0 +1,18 @@
+-- Managed by Ansible. Expects psql variables :app and :pw (set on stdin before this file).
+-- Creates or updates one app's role and database with no access for other roles.
+-- Never write a failing statement (which would contain the password) to the server log.
+SET log_min_error_statement = panic;
+SELECT format('CREATE ROLE %I LOGIN', :'app')
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'app') \gexec
+SELECT 'DO $$BEGIN RAISE NOTICE ''CHANGED''; END$$'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'app') \gexec
+SELECT format('CREATE DATABASE %I OWNER %I', :'app', :'app')
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'app') \gexec
+-- Re-applying the password is harmless and keeps the role in sync with the host secret file.
+SELECT format('ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L', :'app', :'pw') \gexec
+-- PUBLIC gets CONNECT and TEMPORARY by default; without this, other app roles could connect.
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'app') \gexec
+SELECT format('GRANT CONNECT, TEMPORARY ON DATABASE %I TO %I', :'app', :'app') \gexec
+-- App roles must not browse the maintenance database either.
+REVOKE ALL ON DATABASE postgres FROM PUBLIC;
+REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;

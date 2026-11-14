@@ -1,0 +1,73 @@
+# Managed by Ansible (hetzner/ansible/roles/platform). Do not edit on the host.
+name: platform
+
+services:
+  caddy:
+    image: {{ caddy_image }}
+    restart: unless-stopped
+    ports:
+      # The only published ports on the host. The Hetzner firewall keeps them closed
+      # until public_web_enabled is set in OpenTofu.
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+{% for app in platform_apps %}
+      - {{ app.name }}_edge
+{% endfor %}
+      - default
+    mem_limit: 256m
+
+  postgres:
+    image: {{ postgres_image }}
+    restart: unless-stopped
+    # No ports: Postgres is reachable only on the internal per-app networks.
+    command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./postgres:/etc/postgresql:ro
+    networks:
+{% for app in platform_apps %}
+      - {{ app.name }}_db
+{% endfor %}
+      - postgres_internal
+    healthcheck:
+      # TCP check: the local socket answers during first-time initialisation.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    shm_size: 128m
+    mem_limit: 1g
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+
+networks:
+  default:
+  # Postgres shares no network with Caddy; this one only keeps it attached when no app exists.
+  postgres_internal:
+    internal: true
+{% for app in platform_apps %}
+  # {{ app.name }}: apps join these by name as external networks.
+  {{ app.name }}_edge:
+    name: {{ app.name }}_edge
+    internal: false
+  {{ app.name }}_db:
+    name: {{ app.name }}_db
+    internal: true
+{% endfor %}

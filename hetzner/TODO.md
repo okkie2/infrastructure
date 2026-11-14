@@ -1,49 +1,78 @@
+---
+title: "Hetzner TODO"
+created: unknown
+created_by: unknown
+creation_reason: "Canonical follow-up list for Hetzner infrastructure."
+purpose: "Track open Hetzner work with verifiable done conditions."
+provenance:
+  type: original
+  description: "Planning list. Completion marks rest on the verified state in ubuntu-4gb-hel1-1/operations.md."
+  sources:
+    - reference: "ubuntu-4gb-hel1-1/operations.md"
+      description: "Evidence for completed items."
+ai:
+  involvement: drafting
+  description: "Earlier authorship is not recorded. Claude Code updated the completion state and added follow-ups on 14 November 2026."
+updated: "2026-11-14"
+updated_by: "Claude Code (Opus 5.5)"
+update_reason: "Marked provisioning items done after live verification; added follow-ups from the provisioning and from the QA and security reviews (rebuild, patching and supply chain); recorded the provisioning token revocation."
+---
+
 # Hetzner TODO
 
-Canonical follow-up list for Hetzner infrastructure. Keep each item here until its done condition is verified; server operations documents link here instead of duplicating status.
+Canonical follow-up list for Hetzner infrastructure. Keep each item here until its done condition is verified. Operations documents link here instead of duplicating status.
 
-## 1. Version the infrastructure source
+## Done (14 November 2026)
 
-- [ ] Create a dedicated Git repository for `hetzner/` or a clearly scoped repo root.
-- [ ] Add the architecture/operations docs and future OpenTofu/Ansible files.
-- [ ] Confirm secrets, private keys, local OpenTofu state and generated files are excluded and not tracked.
-- **Done when:** the repo has a remote and a clean, reviewable change history; no secret values or state files are in Git.
+- [x] **Version the infrastructure source:** the repository has the remote `okkie2/infrastructure`; state, plans and secrets are ignored.
+- [x] **Secure SSH administration:** Tailscale-only, admin `joost`, root and password login disabled, verified with `sshd -T` and refused logins.
+- [x] **Cloud Firewall:** `prod-ingress` attached, with no inbound 22 and no outbound rules; public 22 times out.
+- [x] **Adopt into OpenTofu:** server and primary IPs imported, provider locked, delete protection on; a follow-up plan shows no changes.
+- [x] **Configure the host with Ansible:** two consecutive full runs report `changed=0`.
+- [x] **Platform:** Caddy plus shared PostgreSQL deployed; per-app provisioning smoke-tested. See [Add an app](apps.md).
 
-## 2. Secure and verify SSH administration
+See [operations](ubuntu-4gb-hel1-1/operations.md) for the evidence.
 
-- [ ] Choose the intended SSH access path: trusted source-IP restriction, a private overlay such as Tailscale, or key-only public SSH.
-- [ ] Create a named non-root administrator with sudo and install its public key.
-- [ ] Verify a second SSH login as that administrator before changing root access or password authentication.
-- [ ] Disable root SSH login and SSH password authentication after the replacement access path is tested.
-- **Done when:** a fresh non-root key-based SSH session works and the effective SSH configuration confirms the intended root/password policy.
+## Open
 
-## 3. Configure the Hetzner Cloud Firewall
+### 1. Back up to the Synology (owner priority; before any real data)
 
-- [ ] Choose SSH source ranges, including IPv4 and IPv6 behavior.
-- [ ] Apply a default-deny inbound policy allowing only the selected SSH source initially; keep outbound rules unset.
-- [ ] Add public TCP 80/443 only when the reverse proxy and applications are ready.
-- [ ] Verify SSH access in a second session and verify the effective Cloud Firewall attachment before closing the existing session.
-- **Done when:** inbound exposure matches the approved design, SSH remains reachable through the chosen path, and PostgreSQL is not publicly reachable.
+- [ ] Nightly `pg_dump` per app database, plus the Caddy data volume.
+- [ ] Encrypted transport over Tailscale to the Synology, in an append-only or pull model so a compromised VPS cannot delete backups. This needs a narrow tailnet grant from `tag:hetzner-prod` to the backup target only.
+- [ ] Retention, failure alerting, and an isolated restore trial with recorded evidence.
+- **Done when:** a restore from the Synology to a clean target succeeds and its date and evidence are recorded in operations.
 
-## 4. Adopt infrastructure into OpenTofu
+### 2. Require a sudo password
 
-- [ ] Import the existing server and any separately managed primary IP resources into OpenTofu state; the VPS is currently empty, so there is no application data to migrate.
-- [ ] Verify FileVault and secure encrypted backups before using local OpenTofu state; exclude state and plan files from Git. Revisit a remote locked backend before multi-machine or automated runs.
-- [ ] Pin the Hetzner provider and commit its lock file.
-- [ ] Review the import plan and subsequent plan for replacement, deletion, IP changes and firewall changes before any apply.
-- [ ] Create a separate project-scoped Read & Write Hetzner API token only when a reviewed plan is ready to apply; keep it in Proton Pass and out of source files.
-- **Done when:** a reviewed plan has no unintended replacement/deletion and state recovery/access is documented.
+- [ ] Set a password for `joost` (Proton Pass), replace the `NOPASSWD` sudoers entry, and run Ansible with `--ask-become-pass`.
+- **Done when:** `sudo -n true` fails, `sudo -v` with the password works, and the playbook still reaches `changed=0`.
 
-## 5. Configure the host with Ansible
+### 3. Protect OpenTofu state
 
-- [ ] Create an inventory and playbooks for users/SSH, updates, host firewall strategy, Docker Engine/Compose, logging and deployment directories.
-- [ ] Keep secrets out of plain inventory and source control.
-- [ ] Use state-aware modules where possible; test check mode and repeat the playbook to confirm a no-change second run.
-- **Done when:** a reviewed playbook establishes the intended host state, succeeds twice, and a second run reports no unexpected changes.
+- [ ] `hetzner/opentofu/terraform.tfstate` exists only on the Mac (FileVault on). Confirm it is in an encrypted backup such as Time Machine, or move to a remote locked backend before using a second machine.
+- **Done when:** a backup copy of the state is confirmed restorable.
 
-## 6. Prepare applications and recovery
+### 4. Revoke the provisioning token
 
-- [ ] Keep each app's Dockerfile and Compose definition in its application repository; publish only the reverse proxy's public ports.
-- [ ] Configure external encrypted backups for database dumps and required persistent files.
-- [ ] Perform an isolated restore and verify database integrity plus application access before writing production data.
-- **Done when:** each app has a pinned deployment artifact, private database networking, working health checks, and a documented successful restore trial.
+- [x] The owner deleted the read-write token `opentofu-hetzner-prod` on 14 November 2026. The read-only `hcloud` context still works. Create a new short-lived read-write token per apply and delete it afterwards.
+
+### 5. First app
+
+- [ ] Follow [Add an app](apps.md), including opening public web (`public_web_enabled`) and the Caddy ACME email.
+- **Done when:** the app is served over HTTPS from a pinned image digest, with private database networking and a working health check.
+
+### 6. Make the rebuild procedure work and rehearse it
+
+- [ ] Implement the outline in [operations](ubuntu-4gb-hel1-1/operations.md#runbook): `public_net` with the protected IPs, bootstrap SSH key, and a temporary source-restricted SSH rule.
+- **Done when:** a rebuild onto a throwaway server succeeds following only the documented steps.
+
+### 7. Patching and supply chain
+
+- [ ] Decide on unattended updates for the Docker CE and Tailscale repositories (security pocket only today) and on a kernel reboot policy.
+- [ ] Pin Caddy and PostgreSQL images by digest; verify the Docker and Tailscale apt key fingerprints in Ansible.
+- **Done when:** the policy is in Ansible and checked by a playbook run.
+
+### 8. Monitoring
+
+- [ ] Alerting for disk, memory, container restarts and backup failures (4 GB RAM is tight for PostgreSQL plus two apps).
+- **Done when:** a simulated condition produces an alert the owner receives.

@@ -1,0 +1,66 @@
+- name: Add the Tailscale apt key
+  ansible.builtin.get_url:
+    url: "https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_facts.distribution_release }}.noarmor.gpg"
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: "0644"
+
+- name: Add the Tailscale apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/tailscale.list
+    content: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {{ ansible_facts.distribution_release }} main\n"
+    mode: "0644"
+  register: tailscale_repo
+
+- name: Install Tailscale
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: "{{ tailscale_repo.changed }}"
+
+- name: Enable tailscaled
+  ansible.builtin.systemd_service:
+    name: tailscaled
+    enabled: true
+    state: started
+
+- name: Read Tailscale state
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Join the tailnet when not yet logged in
+  when: (tailscale_status.stdout | default('{}') | from_json).BackendState | default('') != 'Running'
+  block:
+    - name: Require an auth key from the environment
+      ansible.builtin.assert:
+        that: lookup('ansible.builtin.env', 'TS_AUTHKEY') | length > 0
+        fail_msg: Set TS_AUTHKEY to a pre-approved, tagged ({{ tailscale_tags }}) Tailscale auth key.
+
+    # The key goes through a root-only file, never a command line (visible in /proc).
+    - name: Join with a staged auth key
+      block:
+        - name: Stage the auth key
+          ansible.builtin.copy:
+            dest: /root/.tailscale-authkey
+            content: "{{ lookup('ansible.builtin.env', 'TS_AUTHKEY') }}"
+            mode: "0600"
+          no_log: true
+
+        - name: Bring Tailscale up
+          ansible.builtin.command:
+            argv:
+              - tailscale
+              - up
+              - --auth-key=file:/root/.tailscale-authkey
+              - "--hostname={{ tailscale_hostname }}"
+              - "--advertise-tags={{ tailscale_tags }}"
+              - --accept-routes=false
+              - --accept-dns=false
+          changed_when: true
+      always:
+        - name: Remove the staged auth key, also after a failed join
+          ansible.builtin.file:
+            path: /root/.tailscale-authkey
+            state: absent

@@ -1,0 +1,30 @@
+# Non-secret host configuration. Secrets come from the environment at run time.
+
+admin_user: joost
+admin_ssh_public_key_file: ~/.ssh/id_ed25519.pub
+
+timezone: Europe/Amsterdam
+
+tailscale_hostname: ubuntu-4gb-hel1-1
+tailscale_tags: tag:hetzner-prod
+
+# Applied 2026-11-14 after tailnet admin access was verified. Set false only for a fresh bootstrap.
+ssh_hardening_enabled: true
+
+docker_log_max_size: 10m
+docker_log_max_file: "3"
+
+platform_root: /srv/platform
+apps_root: /srv/apps
+
+caddy_image: caddy:2.11.9
+postgres_image: postgres:18.7
+caddy_acme_email: ""  # set when the first public domain goes live
+
+# One entry per app. Adding an entry creates its networks, database, role and
+# password file. Example:
+#   - name: sinterapp
+#     domain: sinterapp.example.org
+#     upstream: sinterapp-web:8000  # network alias:port the app sets on <name>_edge
+#     uid: 1000                     # uid the app container runs as (reads db_password); default 0
+platform_apps: []

@@ -1,0 +1,21 @@
+- name: Create the administrator account (key-only, no password)
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    shell: /bin/bash
+    groups: [sudo]
+    append: true
+    password: "!"
+    update_password: on_create
+
+- name: Install the administrator's public key
+  ansible.posix.authorized_key:
+    user: "{{ admin_user }}"
+    key: "{{ lookup('ansible.builtin.file', admin_ssh_public_key_file) }}"
+    exclusive: true
+
+- name: Allow passwordless sudo for the key-only administrator
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ admin_user }}"
+    content: "{{ admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

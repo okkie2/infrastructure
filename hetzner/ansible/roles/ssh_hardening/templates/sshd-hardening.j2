@@ -1,0 +1,9 @@
+# Managed by Ansible (hetzner/ansible/roles/ssh_hardening). Do not edit on the host.
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+AllowUsers {{ admin_user }}
+X11Forwarding no
+MaxAuthTries 3

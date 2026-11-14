@@ -8,7 +8,7 @@ What is planned for the NAS and its documentation. Project-specific lists live i
 
 ## NEXT
 
-- [ ] **Kindle Words: reboot test.** Restart the NAS once and confirm `kindle-vocab` comes back on port 8770. The remaining Kindle-side checks are in the `kindle` repo's `TODO.md`. See [kindle-words](projects/kindle-words/).
+- [ ] **Kibble: reboot test.** Restart the NAS once and confirm `kibble` and `kibble-ts` come back (port 8770 and Tailscale HTTPS). The remaining Kindle-side checks are in the `kibble` repo's `TODO.md`. See [kibble](projects/kibble/).
 
 - [ ] **Design a voice-started deploy from GitHub to the NAS.** On every car trip a new feature (for example in Volition) is ready but cannot be deployed and used straight away. Investigate how an explicitly approved GitHub Actions workflow, started from ChatGPT Voice, can install a tested release on the NAS without public NAS access: a NAS-initiated pull or an isolated self-hosted runner, with limited credentials, confirmation, a smoke test, an audit log and rollback. Design and security review first; build and enable only after owner approval.
 - [ ] **Finish the Mac project backup rollout:** install the weekly LaunchAgent on the Mac and observe its first scheduled run; add an independent NAS-side check that the newest `backup/linkedin-archive/` folder is under 9 days old (or accept manual `./backup.py status`). The first push, restore test and a `backup` snapshot are done; see [host → Mac project backups](projects/host/README.md#mac-project-backups-convention-2026-10-23).

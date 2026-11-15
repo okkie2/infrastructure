@@ -35,15 +35,11 @@ LINKEDIN_BACKUP_DIR = "/volume1/backup/linkedin-archive"
 # Status file written by the nightly Hetzner backup pull (projects/hetzner-backup).
 HETZNER_STATUS = "/volume1/backup/hetzner/status/last-run.json"
 
-# Hyper Backup's local per-repo cache dirs; their mtime tracks the last
-# time that repo was touched by a backup run. This is a recency proxy,
-# not a confirmed pass/fail result from OK035 itself -- Hyper Backup's
-# actual per-run result history lives in a root-only store we didn't
-# find a stable, documented way to read from a script.
-HB_REPO_CACHES = {
-    "Media Docker (Backup C)": "/volume1/@img_bkp_cache/ClientCache_image_image_remote.dmLRJx",
-    "Backup D": "/volume1/@img_bkp_cache/ClientCache_image_image_remote.1gUao7",
-}
+# Cache paths are NAS runtime configuration rather than source, because this
+# repository is public. The root-owned file contains no credentials and is
+# kept under root's private home, outside Git and shared-folder ACLs.
+HB_REPO_CACHE_CONFIG = "/root/status-page-hyperbackup-cache-paths.json"
+HB_REPO_LABELS = ("Media (Backup C)", "Time Machine Homes (Backup D)")
 
 SECURITYSCAN_RESULT = "/var/lib/securityscan/securityscanResult.json"
 
@@ -160,12 +156,39 @@ def ok035_backup():
     repos = {}
     worst = "ok"
     order = {"ok": 0, "warn": 1, "stale": 2, "unknown": 1}
-    for label, path in HB_REPO_CACHES.items():
+    try:
+        with open(HB_REPO_CACHE_CONFIG) as f:
+            configured_paths = json.load(f)
+        if not isinstance(configured_paths, dict) or set(configured_paths) != set(HB_REPO_LABELS):
+            configured_paths = {}
+    except (OSError, ValueError):
+        configured_paths = {}
+
+    path_counts = {}
+    for configured_path in configured_paths.values():
+        if isinstance(configured_path, str):
+            path_counts[configured_path] = path_counts.get(configured_path, 0) + 1
+
+    for label in HB_REPO_LABELS:
+        path = configured_paths.get(label)
         try:
-            mtime = os.path.getmtime(path)
+            if not isinstance(path, str) or path_counts.get(path) != 1 or not re.fullmatch(
+                r"/volume1/@img_bkp_cache/ClientCache_image_image_remote\.[A-Za-z0-9]+",
+                path,
+            ) or os.path.islink(path):
+                raise OSError("cache path is not configured")
+            # A newly created, still-empty cache directory must not look
+            # healthy just because the task was configured recently. Use
+            # the newest top-level cache entry; ignore DSM's @eaDir metadata.
+            with os.scandir(path) as entries:
+                mtimes = [entry.stat(follow_symlinks=False).st_mtime
+                          for entry in entries if entry.name != "@eaDir"]
+            mtime = max(mtimes) if mtimes else None
+            if mtime is None:
+                raise OSError("cache has no data entries")
             days = age_days(mtime)
             status = "ok" if days <= 8 else ("warn" if days <= 10 else "stale")
-        except OSError:
+        except (OSError, ValueError):
             mtime, days, status = None, None, "unknown"
         repos[label] = {
             "last_activity": iso(mtime) if mtime else None,
@@ -177,7 +200,7 @@ def ok035_backup():
     return {
         "repos": repos,
         "status": worst,
-        "note": "based on local backup-cache activity, not a confirmed remote result",
+        "note": "based on local activity of the encrypted-task caches, not a confirmed remote result",
     }
 
 

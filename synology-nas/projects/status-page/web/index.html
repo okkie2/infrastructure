@@ -173,7 +173,7 @@
     checks.push(['Hetzner backup', hz.last_backup ? fmtWhen(hz.last_backup) + ' (' + fmtAge(hz.age_days) + ')' + (hz.note ? ', ' + hz.note : '') : (hz.note || 'unknown'), hz.status]);
     Object.keys(hb.repos || {}).forEach(function (name) {
       var r = hb.repos[name];
-      checks.push(['Backup to OK035, ' + name, fmtWhen(r.last_activity) + ' (' + fmtAge(r.age_days) + ')', hb.status]);
+      checks.push(['Encrypted backup to OK035, ' + name, fmtWhen(r.last_activity) + ' (' + fmtAge(r.age_days) + ')', r.status]);
     });
     var wtText = wt.last_run ? fmtWhen(wt.last_run) + (wt.age_hours != null ? ' (' + wt.age_hours + 'h ago)' : '')
       : (wt.note || 'no last-check time');

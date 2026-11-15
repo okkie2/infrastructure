@@ -16,8 +16,8 @@ ai:
   involvement: drafting
   description: "Claude drafted the procedure; the owner chose the platform design decisions it implements. Codex updated its backup status on 15 November 2026."
 updated: "2026-11-15"
-updated_by: "Codex"
-update_reason: "Updated the backup prerequisite after installation and a successful isolated restore trial."
+updated_by: "Claude Code (Fable 5.2)"
+update_reason: "Noted that public web is open since the first app, the host-built private image option, and Caddy's request time limits."
 ---
 
 # Add an app to the Hetzner platform
@@ -48,7 +48,7 @@ Ansible refuses invalid entries:
 
 1. **Name and domain.** Pick a lowercase app name, matching `[a-z][a-z0-9_]*`; it becomes the database and role name. Point the domain's `A` record to `37.27.251.21` and its `AAAA` record to `2a01:4f9:c015:84a6::1`.
 
-2. **Open public web traffic**, once only, for the first app, before declaring it so Caddy's certificate request can succeed. In `hetzner/opentofu`, run `tofu plan -var public_web_enabled=true`, review that only firewall rules change, then apply. Make the variable's default `true` in `variables.tf` so later plans keep it. This needs a read-write `HCLOUD_TOKEN`; see [operations](ubuntu-4gb-hel1-1/operations.md#runbook).
+2. **Open public web traffic**, once only, for the first app (done on 15 November 2026 for Kibble; skip this step from now on), before declaring it so Caddy's certificate request can succeed. In `hetzner/opentofu`, run `tofu plan -var public_web_enabled=true`, review that only firewall rules change, then apply. Make the variable's default `true` in `variables.tf` so later plans keep it. This needs a read-write `HCLOUD_TOKEN`; see [operations](ubuntu-4gb-hel1-1/operations.md#runbook).
 
 3. **Declare the app** in `ansible/group_vars/all.yml`:
 
@@ -99,6 +99,10 @@ Ansible refuses invalid entries:
      edge: { external: true, name: sinterapp_edge }
      db:   { external: true, name: sinterapp_db }
    ```
+
+   A private image can be built on the host instead of pulled: `git archive HEAD | ssh <host> 'sudo docker build -t <app>:<commit> -'`, then pin its local digest (`<app>@sha256:…` from `docker image inspect … --format '{{json .RepoDigests}}'`) and set `pull_policy: never`. Kibble does this.
+
+   Caddy limits how long a client may take to send a request (headers 10 s, body 30 s; see `roles/platform/templates/Caddyfile.j2`). Raise `read_body` before an app accepts large uploads.
 
    If the app cannot read a `*_FILE` variable, build the connection URL in its entrypoint from the secret file. Do not paste the password into `.env`.
 

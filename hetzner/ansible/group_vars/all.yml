@@ -27,7 +27,11 @@ caddy_acme_email: ""  # set when the first public domain goes live
 #     domain: sinterapp.example.org
 #     upstream: sinterapp-web:8000  # network alias:port the app sets on <name>_edge
 #     uid: 1000                     # uid the app container runs as (reads db_password); default 0
-platform_apps: []
+platform_apps:
+  - name: kibble
+    domain: wordkibble.com
+    upstream: kibble-web:8000
+    uid: 1000
 
 # Nightly backup (roles/backup): database dumps land in backup_root; OK040 fetches them at
 # 07:30 over Tailscale through a list/get-only forced command. Design and decisions:

@@ -4,6 +4,15 @@
 	email {{ caddy_acme_email }}
 {% endif %}
 	admin localhost:2019
+	# A client must send its request within these limits, so a slow sender cannot
+	# hold an app's request threads. Raise read_body before an app accepts large uploads.
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 30s
+			idle 2m
+		}
+	}
 }
 {% for app in platform_apps %}
 

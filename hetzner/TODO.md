@@ -20,8 +20,8 @@ ai:
   involvement: drafting
   description: "Earlier authorship is not recorded. Claude Code updated the completion state and added follow-ups on 14 November 2026; Codex recorded backup installation, restore, review, accepted conditions, and OpenTofu state coverage evidence on 15 November 2026."
 updated: "2026-11-15"
-updated_by: "Codex"
-update_reason: "Recorded completed backup reviews and restore evidence, the owner's accepted storage conditions, and encrypted Time Machine coverage of OpenTofu state without a restore trial."
+updated_by: "Claude Code (Fable 5.2)"
+update_reason: "Recorded the first app (Kibble) as live and listed the follow-ups from its deployment."
 ---
 
 # Hetzner TODO
@@ -66,7 +66,13 @@ OK040 fetches the database dumps over Tailscale through a forced command that on
 
 ### 5. First app
 
-- [ ] Follow [Add an app](apps.md), including opening public web (`public_web_enabled`) and the Caddy ACME email.
+- [x] Kibble went live on 15 November 2026 at `https://wordkibble.com`, following [Add an app](apps.md): public web opened with OpenTofu, the app declared in Ansible, image pinned by digest, private database networking, health check passing. Evidence is in [operations](ubuntu-4gb-hel1-1/operations.md).
+- [ ] Follow-ups from this deployment:
+  - set `caddy_acme_email` once a contact address exists (parked by the owner);
+  - add a route or redirect for `www.wordkibble.com`;
+  - enable IPv6 on the platform's Docker networks so apps see IPv6 visitors' own addresses (today they all appear as one gateway address, which makes per-visitor limits too strict);
+  - confirm the next NAS pull contains `db-kibble.dump`;
+  - decide where private images live: Codefloe makes a public account's packages public, so Kibble's image is built on the host.
 - **Done when:** the app is served over HTTPS from a pinned image digest, with private database networking and a working health check.
 
 ### 6. Make the rebuild procedure work and rehearse it

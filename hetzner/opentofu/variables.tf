@@ -7,7 +7,7 @@ variable "attach_firewall" {
 variable "public_web_enabled" {
   description = "Open TCP 80/443 and UDP 443 to the internet. Enable only once Caddy and a real domain are ready."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "tailscale_direct_udp_enabled" {

@@ -1,3 +1,23 @@
+---
+title: "host (DSM on OK040)"
+created: unknown
+created_by: unknown
+creation_reason: unknown
+purpose: "Record the OK040 host configuration and operating procedures needed to rebuild and maintain its services."
+provenance:
+  type: mixed
+  description: "Historical host details were captured read-only from OK040 on the dates stated in the document. The Hetzner backup account, scheduled pull, ACL and applied power schedule were added from the 15 November 2026 handover evidence."
+  sources:
+    - reference: "../../../HANDOVER-hetzner-backup.md"
+      description: "15 November 2026 evidence for the Hetzner backup task, DSM account and ACL, and applied power schedule."
+ai:
+  involvement: editing
+  description: "Codex added provenance metadata and incorporated the supplied operational handover details; earlier authorship and AI involvement are unknown."
+updated: "2026-11-15"
+updated_by: "Claude Code"
+update_reason: "Recorded the installed Hetzner backup pull and corrected the power schedule status."
+---
+
 # host (DSM on OK040)
 
 Everything that is not a container but that the containers depend on. Captured read-only from the NAS on 2026-10-01. Start here when rebuilding: restore the host first, then each project in the order given under [Rebuild order](#rebuild-order).
@@ -27,8 +47,9 @@ Container Manager (Docker), Hyper Backup, Web Station, Plex Media Server, SMB Se
 | `downloader` | 1031 | Runs qBittorrent, Prowlarr, Sonarr, Radarr and Bazarr (PUID 1031). Needs rwx on `/volume1/download/qbittorrent`, `/volume1/video/TV Shows` and `/volume1/video/Movies`. |
 | `joost` | 1029 | Personal account (home, Volition notes). Volition runs as `1029:100`. |
 | `katharina`, `music-listener`, `guest`, `admin` | 1030, 1027, 1025, 1024 | Household and service accounts. `admin` is the built-in account and is **disabled** (expired; confirmed 2026-10-05, and Security Advisor's `disable_admin` check passes); `guest` is disabled too. |
+| `hetznerbackup` | not recorded | Unprivileged account and dedicated group for the Hetzner backup pull; writes only to `/volume1/backup/hetzner/`. |
 
-All share the group `users` (gid 100). UIDs matter because the containers use them for file permissions; recreate the accounts so the numbers match, or change `PUID` in the Compose files.
+The listed pre-existing accounts share the group `users` (gid 100). `hetznerbackup` uses its dedicated `hetznerbackup` group. UIDs matter because the containers use them for file permissions; recreate the accounts so the numbers match, or change `PUID` in the Compose files.
 
 ## Shared folders
 
@@ -36,10 +57,13 @@ All share the group `users` (gid 100). UIDs matter because the containers use th
 
 Permissions are partly Synology ACLs (the `+` in `ls -l`), which a plain `chmod` does not show. After a restore, check them in Control Panel → Shared Folder → Permissions and in File Station → Properties → Permission.
 
+For the Hetzner pull, `hetznerbackup` has traverse/read-attributes on the `backup` shared-folder root and read/write access only to `/volume1/backup/hetzner/`. This ACL is configured in DSM; Unix mode bits alone do not show it.
+
 ## Scheduled tasks (Control Panel → Task Scheduler)
 
 | Task | Owner | When | What |
 |---|---|---|---|
+| Hetzner backup pull | hetznerbackup | daily 07:30 | Runs `/usr/local/libexec/hetzner-backup/pull-hetzner-backup.py`; fetches and verifies Hetzner PostgreSQL dumps into `/volume1/backup/hetzner/`. See [hetzner-backup](../hetzner-backup/). |
 | status-page-refresh | root | daily from 00:30, repeating through the day (last run 18:30) | `python3 /volume1/docker/status-page/gather-status.py` writes `/volume1/web/status.json`. See [status-page](../status-page/). |
 | Volition Daily Copy | joost | daily 02:00 | Runs `/usr/bin/python3 /usr/local/libexec/volition/backup-notes.py`; copies `/volume1/homes/joost/Volition/notes` to `/volume1/homes/joost/Volition-backups/notes-<timestamp>` and keeps the newest 8. |
 | Media Docker (backup) and verify | root | Sundays 12:15 / 21:00 | Hyper Backup run and verify for the "Media Docker" repo. |
@@ -52,9 +76,13 @@ Permissions are partly Synology ACLs (the `+` in `ls -l`), which a plain `chmod`
 | SSH rescue | root | triggered (boot-up), **disabled**; run by hand only | `sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && /usr/syno/bin/synosystemctl restart sshd`. Undoes the key-only SSH setting. |
 | Boot-up task for `gluetun/start-stack.sh` | root | at boot | Described in [gluetun-qbittorrent](../gluetun-qbittorrent/). **Exists and works (checked 2026-10-05)**: it is a triggered task named "Start Gluetun stack" (Boot-up, enabled, runs `sh /volume1/docker/gluetun/start-stack.sh`) and last ran at 2026-09-27 09:44, one minute after the NAS booted. Triggered tasks are stored in `/usr/syno/etc/esynoscheduler/esynoscheduler.db`, not in the cron-style task list, so `synoschedtask --get` does not show them. |
 
-## Proposed power and maintenance windows (not applied)
+## Applied power schedule
 
-Use **maintenance window** for the recurring time when OK040 is powered on to run backups, integrity checks and disk tests. The term is defined in the repository [glossary](../../GLOSSARY.md). Times below are Europe/Amsterdam local time. This is a proposal; the DSM and Hyper Backup schedules have not been changed.
+DSM's applied schedule powers OK040 on daily at **07:00** and powers it off on weekdays at **00:15**, as recorded in the 2026-11-15 handover. The backup pull runs at 07:30, after the scheduled weekday start.
+
+## Previous proposed power and maintenance windows (superseded)
+
+The schedule below was a planning proposal and is superseded by the applied power schedule above. Its timings and tasks are retained as historical planning context; they do not describe the current DSM schedule.
 
 ### Evidence and limits
 
@@ -239,7 +267,7 @@ Installed DSM packages not described elsewhere in this repo: **ScsiTarget** (iSC
 
 ## Power schedule
 
-DSM's Task Scheduler lists two power tasks, `PowerOff` and `PowerOn task 0`, both **disabled** (seen in the UI on 2026-10-05). The NAS therefore runs around the clock.
+DSM's applied power schedule powers OK040 on daily at **07:00** and off on weekdays at **00:15** (handover evidence, 2026-11-15). This supersedes the 2026-10-05 observation that both power tasks were disabled.
 
 ## Automation outside Docker
 

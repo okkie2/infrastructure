@@ -10,12 +10,16 @@ provenance:
   sources:
     - reference: "ubuntu-4gb-hel1-1/operations.md"
       description: "Evidence for completed items."
+    - reference: "../synology-nas/projects/hetzner-backup/README.md"
+      description: "Backup design, including the documented unencrypted-storage condition and revisit threshold."
+    - reference: "User report in this conversation (2026-11-15)"
+      description: "States that QA and security rechecks completed conditionally and that the owner accepts unencrypted storage for current data."
 ai:
   involvement: drafting
-  description: "Earlier authorship is not recorded. Claude Code updated the completion state and added follow-ups on 14 November 2026."
-updated: "2026-11-14"
-updated_by: "Claude Code (Opus 5.5)"
-update_reason: "Marked provisioning items done after live verification; added follow-ups from the provisioning and from the QA and security reviews (rebuild, patching and supply chain); recorded the provisioning token revocation."
+  description: "Earlier authorship is not recorded. Claude Code updated the completion state and added follow-ups on 14 November 2026; Codex recorded backup installation, restore, review, and accepted-condition evidence on 15 November 2026."
+updated: "2026-11-15"
+updated_by: "Codex"
+update_reason: "Recorded the completed QA and security rechecks, conditional readiness, and the owner's acceptance of unencrypted backup storage for current data."
 ---
 
 # Hetzner TODO
@@ -37,9 +41,11 @@ See [operations](ubuntu-4gb-hel1-1/operations.md) for the evidence.
 
 ### 1. Back up to the Synology (owner priority; before any real data)
 
-- [ ] Nightly `pg_dump` per app database, plus the Caddy data volume.
-- [ ] Encrypted transport over Tailscale to the Synology, in an append-only or pull model so a compromised VPS cannot delete backups. This needs a narrow tailnet grant from `tag:hetzner-prod` to the backup target only.
-- [ ] Retention, failure alerting, and an isolated restore trial with recorded evidence.
+OK040 fetches the database dumps over Tailscale through a forced command that only lists backups and sends single files; the server gets no access to the NAS. Caddy data is not backed up. Design, decisions and install steps: [hetzner-backup README](../synology-nas/projects/hetzner-backup/README.md). Code: [`ansible/roles/backup`](ansible/roles/backup/).
+
+- [x] Code written and tested locally; QA and security rechecks completed 2026-11-15 and remain conditionally ready due to the documented unencrypted-backup condition. The owner explicitly accepted this condition for current data. Revisit encryption before storing other people's personal data.
+- [x] Install: DSM user and pull key, second ntfy topic, Ansible run, NAS script, Task Scheduler entry, status page.
+- [x] Isolated restore trial with recorded evidence in [operations](ubuntu-4gb-hel1-1/operations.md#isolated-restore-trial-15-november-2026).
 - **Done when:** a restore from the Synology to a clean target succeeds and its date and evidence are recorded in operations.
 
 ### 2. Require a sudo password

@@ -1,0 +1,21 @@
+# Install as /usr/local/etc/hetzner-backup/hetzner-backup.conf, owner root, group hetznerbackup, mode 0640.
+[pull]
+host = 100.105.28.57
+user = nasbackup
+# The project backup folder; DSM permissions let the job user write here and nowhere else.
+dest = /volume1/backup/hetzner/copies
+# Read by the status page; outside dest so that folder holds only backups.
+status_file = /volume1/backup/hetzner/status/last-run.json
+keep_daily = 7
+keep_weekly = 4
+# More new backups than this in one run means something is wrong on the server (the server keeps 7).
+max_new_per_run = 8
+# The Hetzner dump runs at 01:30 and this pull at 07:30 (6 hours later); one missed night
+# leaves the newest copy about 30 hours old, so 12 alerts on it the same morning.
+max_age_hours = 12
+# Size caps against a misbehaving server, and a floor for the shared volume.
+max_file_mb = 4096
+max_backup_mb = 8192
+min_free_mb = 51200
+# The private ntfy topic URL (https://ntfy.sh/<topic>); see host README, Notifications.
+ntfy_url =

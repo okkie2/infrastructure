@@ -1,0 +1,10 @@
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+[Unit]
+Description=Daily check that OK040 fetched the backups
+
+[Timer]
+OnCalendar=*-*-* 10:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

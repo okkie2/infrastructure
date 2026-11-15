@@ -1,0 +1,12 @@
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+[Unit]
+Description=Alert when OK040 has not confirmed a backup pull
+OnFailure=platform-backup-alert@%n.service
+
+[Service]
+Type=oneshot
+ExecStart={{ backup_lib }}/backup-watch
+TimeoutStartSec=2min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only

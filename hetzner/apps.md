@@ -14,10 +14,10 @@ provenance:
       description: "Verified host state and access path."
 ai:
   involvement: drafting
-  description: "Claude drafted the procedure; the owner chose the platform design decisions it implements."
-updated: "2026-11-14"
-updated_by: "Claude Code (Opus 5.5)"
-update_reason: "Initial version; revised the same day after QA and security review and an end-to-end test with a throwaway app."
+  description: "Claude drafted the procedure; the owner chose the platform design decisions it implements. Codex updated its backup status on 15 November 2026."
+updated: "2026-11-15"
+updated_by: "Codex"
+update_reason: "Updated the backup prerequisite after installation and a successful isolated restore trial."
 ---
 
 # Add an app to the Hetzner platform
@@ -120,6 +120,6 @@ This exact shape (non-root, read-only, no capabilities, database through the sec
 
 Stop its Compose project, remove it from `platform_apps`, and rerun step 4. The database, role, secret file and the two `<app>_*` Docker networks are deliberately kept. After a final backup, remove them by hand: `DROP DATABASE`/`DROP ROLE` via `docker compose exec postgres psql -U postgres`, `docker network rm <app>_edge <app>_db`, and `rm -r /srv/apps/<app>`.
 
-## Not yet in place
+## Backups
 
-Database backups to the Synology are not configured yet. Do not put data you cannot lose on the platform until the [Hetzner TODO](TODO.md) backup item is done and a restore has been tested.
+Nightly PostgreSQL dumps are pulled to OK040, and an isolated restore trial succeeded on 15 November 2026. See the [backup design and restore record](../synology-nas/projects/hetzner-backup/README.md) and [operations evidence](ubuntu-4gb-hel1-1/operations.md#isolated-restore-trial-15-november-2026). Caddy certificates are not backed up.

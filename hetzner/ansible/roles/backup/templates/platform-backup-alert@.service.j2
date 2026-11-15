@@ -1,0 +1,8 @@
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+[Unit]
+Description=Send an ntfy alert that %i failed
+
+[Service]
+Type=oneshot
+ExecStart={{ backup_lib }}/backup-alert "%i failed on %H; see journalctl -u %i"
+TimeoutStartSec=1min

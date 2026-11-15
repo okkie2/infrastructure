@@ -1,0 +1,12 @@
+#!/bin/bash
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+# Sends one ntfy alert. The topic URL is a secret in /etc/platform-backup/ntfy_url.
+set -euo pipefail
+message="$*"
+logger -t platform-backup-alert -- "$message"
+url_file=/etc/platform-backup/ntfy_url
+if [[ ! -s $url_file ]]; then
+  logger -p user.err -t platform-backup-alert -- "no ntfy URL in $url_file; alert not sent"
+  exit 1
+fi
+curl -fsS -m 15 -H "Title: Hetzner backup" -H "Tags: warning" --data-binary "$message" "$(< "$url_file")" > /dev/null

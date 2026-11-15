@@ -32,6 +32,9 @@ TM_SPARSEBUNDLE = "/volume1/timemachine/joost.sparsebundle"
 # it only appears once complete (the Mac renames it into place after verifying).
 LINKEDIN_BACKUP_DIR = "/volume1/backup/linkedin-archive"
 
+# Status file written by the nightly Hetzner backup pull (projects/hetzner-backup).
+HETZNER_STATUS = "/volume1/backup/hetzner/status/last-run.json"
+
 # Hyper Backup's local per-repo cache dirs; their mtime tracks the last
 # time that repo was touched by a backup run. This is a recency proxy,
 # not a confirmed pass/fail result from OK035 itself -- Hyper Backup's
@@ -122,6 +125,35 @@ def linkedin_backup():
     days = (now() - newest).total_seconds() / 86400.0
     status = "ok" if days <= 8 else ("warn" if days <= 9 else "stale")
     return {"last_backup": newest.isoformat(), "age_days": round(days, 1), "status": status}
+
+
+def hetzner_backup():
+    """The pull job's own status file (see projects/hetzner-backup). Green while the last
+    successful pull is under 26 hours old; a failed latest run is amber even if the last
+    success is recent, because the job also sends an ntfy alert then."""
+    try:
+        with open(HETZNER_STATUS) as f:
+            status = json.load(f)
+    except (OSError, ValueError):
+        return {"status": "unknown", "note": "no status file"}
+    if not isinstance(status, dict):
+        return {"status": "unknown", "note": "unreadable status file"}
+    last = status.get("last_success")
+    if not last:
+        return {"status": "stale", "note": "never succeeded"}
+    try:
+        hours = (now() - datetime.fromisoformat(str(last))).total_seconds() / 3600
+    except Exception:  # never let one bad file break the whole status page
+        return {"status": "unknown", "note": "unreadable status file"}
+    result = {"last_backup": last, "age_days": round(hours / 24, 1), "newest": status.get("newest")}
+    if hours > 26:
+        result["status"] = "stale"
+    elif not status.get("ok"):
+        result["status"] = "warn"
+        result["note"] = "last run failed"
+    else:
+        result["status"] = "ok"
+    return result
 
 
 def ok035_backup():
@@ -382,6 +414,7 @@ def main():
         "generated_at": now().isoformat(),
         "time_machine": time_machine(),
         "linkedin_backup": linkedin_backup(),
+        "hetzner_backup": hetzner_backup(),
         "ok035_backup": ok035_backup(),
         "security_advisor": security_advisor(),
         "watchtower": wt_status,

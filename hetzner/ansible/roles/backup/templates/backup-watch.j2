@@ -1,0 +1,15 @@
+#!/bin/bash
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+# Alerts when OK040 has not confirmed a verified pull for {{ backup_watch_max_hours }} hours. This catches
+# what the NAS cannot report itself: the NAS being off, its task disabled, or the job hanging.
+set -euo pipefail
+state=/var/lib/{{ backup_user }}/last-done
+max_hours={{ backup_watch_max_hours }}
+if [[ ! -f $state ]]; then
+  exec {{ backup_lib }}/backup-alert "OK040 has never confirmed a pull from ubuntu-4gb-hel1-1."
+fi
+age_hours=$(( ($(date +%s) - $(stat -c %Y -- "$state")) / 3600 ))
+if (( age_hours > max_hours )); then
+  exec {{ backup_lib }}/backup-alert "OK040 has not confirmed a pull for ${age_hours} hours. Last: $(< "$state")"
+fi
+logger -t platform-backup-watch -- "OK: last confirmed pull ${age_hours} hours ago"

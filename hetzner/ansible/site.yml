@@ -8,3 +8,4 @@
     - { role: ssh_hardening, tags: [ssh] }
     - { role: docker, tags: [docker] }
     - { role: platform, tags: [platform] }
+    - { role: backup, tags: [backup] }

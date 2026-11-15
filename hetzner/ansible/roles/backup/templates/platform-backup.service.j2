@@ -1,0 +1,14 @@
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+[Unit]
+Description=Dump PostgreSQL for OK040 to fetch
+Requires=docker.service
+After=docker.service
+OnFailure=platform-backup-alert@%n.service
+
+[Service]
+Type=oneshot
+ExecStart={{ backup_lib }}/platform-backup
+TimeoutStartSec=1h
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only

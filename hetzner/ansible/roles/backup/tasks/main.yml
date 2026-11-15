@@ -1,0 +1,123 @@
+# Nightly database dumps into {{ backup_root }}. OK040 fetches them through a forced command
+# that only lists backups and sends single files, and confirms each pull; a daily watch
+# alerts over ntfy when no pull was confirmed. NAS side: synology-nas/projects/hetzner-backup/.
+
+- name: Install what the backup scripts need
+  ansible.builtin.apt:
+    name: [python3, curl]
+    state: present
+
+- name: Create the backup pull account (locked password; key-only, forced command)
+  ansible.builtin.user:
+    name: "{{ backup_user }}"
+    system: true
+    shell: /bin/sh  # sshd runs the forced command through the login shell
+    home: "/var/lib/{{ backup_user }}"
+    create_home: true
+    password: "!"
+    update_password: on_create
+
+# Check mode does not create the account, so tasks that need it are skipped on a first check.
+- name: Look up the pull account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ backup_user }}"
+    fail_key: false
+
+- name: Note whether the pull account exists
+  ansible.builtin.set_fact:
+    backup_user_exists: "{{ (ansible_facts.getent_passwd | default({})).get(backup_user) is not none }}"
+
+- name: Create the backup directory (root writes, the pull account reads)
+  ansible.builtin.file:
+    path: "{{ backup_root }}"
+    state: directory
+    owner: root
+    group: "{{ backup_user }}"
+    mode: "0750"
+  when: backup_user_exists
+
+- name: Create the script and configuration directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ backup_lib }}", mode: "0755" }
+    - { path: /etc/platform-backup, mode: "0700" }
+
+- name: Install the backup scripts
+  ansible.builtin.template:
+    src: "{{ item.name }}.j2"
+    dest: "{{ backup_lib }}/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: platform-backup, mode: "0750" }
+    - { name: backup-serve, mode: "0755" }  # runs as the pull account
+    - { name: backup-alert, mode: "0750" }
+    - { name: backup-watch, mode: "0750" }
+
+# The ntfy topic is a secret: pass it as BACKUP_NTFY_URL at run time. Without it an existing
+# file is kept; without either, alerts fail loudly in the journal.
+- name: Store the ntfy topic URL for alerts
+  ansible.builtin.copy:
+    dest: /etc/platform-backup/ntfy_url
+    content: "{{ lookup('ansible.builtin.env', 'BACKUP_NTFY_URL') }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  when: lookup('ansible.builtin.env', 'BACKUP_NTFY_URL') | length > 0
+  no_log: true
+
+- name: Install the systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - platform-backup.service
+    - platform-backup.timer
+    - platform-backup-watch.service
+    - platform-backup-watch.timer
+    - platform-backup-alert@.service
+  register: backup_units
+
+- name: Reload systemd after a unit change
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: backup_units.changed and not ansible_check_mode
+
+- name: Enable the nightly dump
+  ansible.builtin.systemd_service:
+    name: platform-backup.timer
+    enabled: true
+    state: started
+  when: not ansible_check_mode or not backup_units.changed
+
+# The watch only makes sense once the NAS can pull; before that it would alert every day.
+- name: Enable or disable the missed-pull watch
+  ansible.builtin.systemd_service:
+    name: platform-backup-watch.timer
+    enabled: "{{ backup_nas_public_key | length > 0 }}"
+    state: "{{ 'started' if backup_nas_public_key | length > 0 else 'stopped' }}"
+  when: not ansible_check_mode or not backup_units.changed
+
+# The key can only run backup-serve, only from OK040, with no terminal or forwarding.
+- name: Authorise the NAS pull key
+  ansible.posix.authorized_key:
+    user: "{{ backup_user }}"
+    path: "/var/lib/{{ backup_user }}/.ssh/authorized_keys"
+    key: "{{ backup_nas_public_key }}"
+    key_options: 'restrict,from="{{ backup_nas_source_ip }}",command="{{ backup_lib }}/backup-serve"'
+    exclusive: true
+  when: backup_user_exists and backup_nas_public_key | length > 0
+
+- name: Remove the pull key when none is configured
+  ansible.builtin.file:
+    path: "/var/lib/{{ backup_user }}/.ssh/authorized_keys"
+    state: absent
+  when: backup_nas_public_key | length == 0

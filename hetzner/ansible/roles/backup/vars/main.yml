@@ -1,0 +1,4 @@
+# Internal paths and limits; the owner-facing settings are in group_vars/all.yml.
+backup_lib: /usr/local/lib/platform-backup
+backup_min_free_mb: 2048
+backup_watch_max_hours: 26

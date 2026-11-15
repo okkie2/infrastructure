@@ -1,0 +1,77 @@
+#!/usr/bin/python3
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+"""Forced command for the NAS pull key. Runs as {{ backup_user }}; understands exactly:
+
+  list                 names of the published backups, one per line
+  get <stamp> <file>   the bytes of one regular file in one backup
+  done <stamp>         the NAS confirms it verified <stamp>; the daily watch reads this
+
+Anything else is refused. The NAS chooses where bytes land, so this side never names files there.
+"""
+import os
+import re
+import shutil
+import stat
+import sys
+import syslog
+import time
+
+ROOT = "{{ backup_root }}"
+STATE = "/var/lib/{{ backup_user }}/last-done"
+STAMP = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z", re.ASCII)
+NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,100}", re.ASCII)
+
+
+def log(message, level=syslog.LOG_INFO):
+    syslog.openlog("backup-serve")
+    syslog.syslog(level, message)
+
+
+def refuse(reason):
+    log("refused: " + reason, syslog.LOG_WARNING)
+    sys.stderr.write("refused\n")
+    sys.exit(2)
+
+
+def backup_dir(stamp):
+    path = os.path.join(ROOT, stamp)
+    try:
+        if stat.S_ISDIR(os.lstat(path).st_mode):
+            return path
+    except FileNotFoundError:
+        pass
+    refuse("no backup " + stamp)
+
+
+def main():
+    args = os.environ.get("SSH_ORIGINAL_COMMAND", "").split()
+    if args == ["list"]:
+        names = sorted(e.name for e in os.scandir(ROOT)
+                       if STAMP.fullmatch(e.name) and e.is_dir(follow_symlinks=False))
+        sys.stdout.write("".join(n + "\n" for n in names))
+        log("list: {} backups".format(len(names)))
+    elif len(args) == 3 and args[0] == "get" and STAMP.fullmatch(args[1]) and NAME.fullmatch(args[2]):
+        path = os.path.join(backup_dir(args[1]), args[2])
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        except OSError:
+            refuse("cannot open {}/{}".format(args[1], args[2]))
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            refuse("not a regular file: {}/{}".format(args[1], args[2]))
+        with os.fdopen(fd, "rb") as source:
+            shutil.copyfileobj(source, sys.stdout.buffer, 1 << 20)
+        sys.stdout.buffer.flush()
+        log("get {}/{}".format(args[1], args[2]))
+    elif len(args) == 2 and args[0] == "done" and STAMP.fullmatch(args[1]):
+        backup_dir(args[1])
+        tmp = STATE + ".tmp"
+        with open(tmp, "w") as handle:
+            handle.write("{} confirmed {}\n".format(args[1], time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())))
+        os.replace(tmp, STATE)
+        log("done " + args[1])
+    else:
+        refuse("unknown request")
+
+
+if __name__ == "__main__":
+    main()

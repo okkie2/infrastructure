@@ -4,6 +4,7 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 PubkeyAuthentication yes
 AuthenticationMethods publickey
-AllowUsers {{ admin_user }}
+AllowUsers {{ admin_user }}{% if backup_nas_public_key | default('') | length > 0 %} {{ backup_user }}@{{ backup_nas_source_ip }}{% endif %}
+
 X11Forwarding no
 MaxAuthTries 3

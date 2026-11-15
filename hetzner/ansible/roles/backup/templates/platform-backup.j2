@@ -1,0 +1,74 @@
+#!/bin/bash
+# Managed by Ansible (hetzner/ansible/roles/backup). Do not edit on the host.
+# Writes globals.sql (roles, without password hashes) and one db-<name>.dump per database
+# into {{ backup_root }}/<UTC timestamp>/ with SHA256SUMS, then keeps the newest {{ backup_keep_local }}.
+# A run is published by an atomic rename, so a half-written backup is never listed.
+# Caddy data is deliberately not backed up (owner decision 2026-11-15): Caddy obtains new
+# certificates by itself, and its private keys should not sit in backups.
+set -euo pipefail
+umask 027
+
+root={{ backup_root }}
+keep={{ backup_keep_local }}
+group={{ backup_user }}
+min_free_mb={{ backup_min_free_mb }}
+expected_dbs=({{ platform_apps | map(attribute='name') | join(' ') }})
+compose=(docker compose --project-directory {{ platform_root }})
+work=/tmp/platform-backup  # inside the postgres container
+
+stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
+staging="$root/.staging-$stamp"
+final="$root/$stamp"
+
+log() { logger -t platform-backup -- "$*"; echo "$*"; }
+pgx() { "${compose[@]}" exec -T postgres "$@"; }
+fail() {
+  trap - ERR
+  log "FAILED: $*"
+  rm -rf -- "$staging"
+  pgx rm -rf "$work" 2> /dev/null || true
+  exit 1
+}
+trap 'fail "command failed at line $LINENO"' ERR
+
+exec 9>/run/platform-backup.lock
+flock -n 9 || fail "another run is active"
+
+free_mb=$(df -Pm -- "$root" | awk 'NR == 2 {print $4}')
+(( free_mb >= min_free_mb )) || fail "only ${free_mb} MB free on $root"
+
+rm -rf -- "$root"/.staging-*   # leftovers of an interrupted run
+mkdir -- "$staging"
+
+pgx pg_dumpall -U postgres --globals-only --no-role-passwords > "$staging/globals.sql"
+
+list=$(pgx psql -U postgres -At -c \
+  "select datname from pg_database where not datistemplate and datname <> 'postgres' order by 1")
+dbs=()
+[[ -n $list ]] && mapfile -t dbs <<< "$list"
+
+for want in "${expected_dbs[@]}"; do
+  [[ " ${dbs[*]} " == *" $want "* ]] || fail "database $want from platform_apps does not exist"
+done
+
+pgx sh -c "rm -rf $work && mkdir -m 700 $work"
+for db in "${dbs[@]}"; do
+  [[ $db =~ ^[a-z][a-z0-9_]{0,62}$ ]] || fail "unexpected database name"
+  # Dump to a file inside the container, read it back in full, then copy it out: a cut-off
+  # stream cannot pass as a complete dump.
+  pgx pg_dump -U postgres -Fc --lock-wait-timeout=300s -d "$db" -f "$work/$db.dump"
+  pgx pg_restore -f /dev/null "$work/$db.dump"
+  "${compose[@]}" cp "postgres:$work/$db.dump" "$staging/db-$db.dump"
+  [[ -f $staging/db-$db.dump && ! -L $staging/db-$db.dump ]] || fail "copied dump of $db is not a regular file"
+done
+pgx rm -rf "$work"
+
+(cd "$staging" && sha256sum -- * > SHA256SUMS)
+chgrp -R -- "$group" "$staging"
+chmod 0640 -- "$staging"/*
+chmod 0750 -- "$staging"
+mv -- "$staging" "$final"
+
+find "$root" -mindepth 1 -maxdepth 1 -type d -name '20*Z' | sort | head -n -"$keep" | xargs -r rm -rf --
+
+log "OK $stamp: $(printf '%s\n' "${dbs[@]}" | grep -c .) databases (${dbs[*]:-none}), $(du -sh -- "$final" | cut -f1)"

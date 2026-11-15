@@ -28,3 +28,14 @@ caddy_acme_email: ""  # set when the first public domain goes live
 #     upstream: sinterapp-web:8000  # network alias:port the app sets on <name>_edge
 #     uid: 1000                     # uid the app container runs as (reads db_password); default 0
 platform_apps: []
+
+# Nightly backup (roles/backup): database dumps land in backup_root; OK040 fetches them at
+# 07:30 over Tailscale through a list/get-only forced command. Design and decisions:
+# synology-nas/projects/hetzner-backup/README.md. Alerts need BACKUP_NTFY_URL once (see there).
+backup_root: /srv/backup
+backup_user: nasbackup
+backup_time: "01:30"  # local time; keep it outside 02:00-03:00 (skipped on the spring DST night)
+backup_keep_local: 7  # covers a NAS outage of up to a week
+backup_nas_source_ip: 100.126.55.95  # OK040's Tailscale address; the only source the key accepts
+# Public half of OK040's pull key. Empty: dumps still run, but nothing can pull them.
+backup_nas_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMA2nt9zjkF3Lkc6n9iAh9Ngy0tq6jxJRxKO5zeqdT3j ok040-hetzner-backup"

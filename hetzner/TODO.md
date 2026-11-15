@@ -14,12 +14,14 @@ provenance:
       description: "Backup design, including the documented unencrypted-storage condition and revisit threshold."
     - reference: "User report in this conversation (2026-11-15)"
       description: "States that QA and security rechecks completed conditionally and that the owner accepts unencrypted storage for current data."
+    - reference: "Time Machine settings and tmutil check in this conversation (2026-11-15)"
+      description: "The destination is encrypted, backups run through 10:15, and the OpenTofu state path is included; no restore trial was performed at the owner's direction."
 ai:
   involvement: drafting
-  description: "Earlier authorship is not recorded. Claude Code updated the completion state and added follow-ups on 14 November 2026; Codex recorded backup installation, restore, review, and accepted-condition evidence on 15 November 2026."
+  description: "Earlier authorship is not recorded. Claude Code updated the completion state and added follow-ups on 14 November 2026; Codex recorded backup installation, restore, review, accepted conditions, and OpenTofu state coverage evidence on 15 November 2026."
 updated: "2026-11-15"
 updated_by: "Codex"
-update_reason: "Recorded the completed QA and security rechecks, conditional readiness, and the owner's acceptance of unencrypted backup storage for current data."
+update_reason: "Recorded completed backup reviews and restore evidence, the owner's accepted storage conditions, and encrypted Time Machine coverage of OpenTofu state without a restore trial."
 ---
 
 # Hetzner TODO
@@ -55,8 +57,8 @@ OK040 fetches the database dumps over Tailscale through a forced command that on
 
 ### 3. Protect OpenTofu state
 
-- [ ] `hetzner/opentofu/terraform.tfstate` exists only on the Mac (FileVault on). Confirm it is in an encrypted backup such as Time Machine, or move to a remote locked backend before using a second machine.
-- **Done when:** a backup copy of the state is confirmed restorable.
+- [x] `hetzner/opentofu/terraform.tfstate` exists only on the Mac. FileVault is on; Time Machine reports an encrypted NAS destination with backups through 15 November 2026 at 10:15, and `tmutil isexcluded` reports the state file as included. The owner accepts the configured backup as usable without a restore trial.
+- **Done when:** the encrypted backup is verified and either a restore succeeds or the owner accepts it without a restore trial. Do not use a second machine unless a remote locked backend is configured.
 
 ### 4. Revoke the provisioning token
 

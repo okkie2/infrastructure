@@ -1,3 +1,23 @@
+---
+title: "Synology NAS TODO"
+created: unknown
+created_by: unknown
+creation_reason: unknown
+purpose: "Track planned maintenance, security, and backup work for Synology NAS hosts."
+provenance:
+  type: mixed
+  description: "Existing items reflect prior planning and observations; their historical authorship and sources are incomplete. The 2026-11-15 setup follow-up comes from direct Synology GUI and SSH observations and the user's instructions in this session."
+  sources:
+    - reference: "conversation"
+      description: "User requested a follow-up for the difficult initial OK040-to-OK035 Hyper Backup connection and login flow, covering both NASes."
+ai:
+  involvement: editing
+  description: "AI added the setup follow-up and backfilled document metadata; historical AI involvement is unknown."
+updated: "2026-11-15"
+updated_by: "Codex"
+update_reason: "Record the recurring Hyper Backup setup friction on both NASes."
+---
+
 # TODO
 
 What is planned for the NAS and its documentation. Project-specific lists live in each project (for example [gluetun-qbittorrent](projects/gluetun-qbittorrent/TODO.md)); the wider checklist is [host → Open items](projects/host/README.md#open-items-2026-10-05).
@@ -17,6 +37,8 @@ What is planned for the NAS and its documentation. Project-specific lists live i
 - **Done when:** both tasks store encrypted data on OK035, a restore from each has been tested, and the old unencrypted copies are deleted.
 
 ## NEXT
+
+- [ ] **Make Hyper Backup first-time setup repeatable on OK040 and OK035.** Investigate and document the remote NAS connection and sign-in flow on both devices, including committing the server IP in OK040's wizard, the `Trust` / `Ignore` certificate choice, and the Chrome certificate warning reached through Browser Login. Find a reliable procedure that preserves the intended authentication and transport protections, then verify it with a test connection.
 
 - [ ] **Kibble: reboot test.** Restart the NAS once and confirm `kibble` and `kibble-ts` come back (port 8770 and Tailscale HTTPS). The remaining Kindle-side checks are in the `kibble` repo's `TODO.md`. See [kibble](projects/kibble/).
 

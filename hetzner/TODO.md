@@ -70,7 +70,7 @@ OK040 fetches the database dumps over Tailscale through a forced command that on
 - [ ] Follow-ups from this deployment:
   - set `caddy_acme_email` once a contact address exists (parked by the owner);
   - add a route or redirect for `www.wordkibble.com`;
-  - enable IPv6 on the platform's Docker networks so apps see IPv6 visitors' own addresses (today they all appear as one gateway address, which makes per-visitor limits too strict);
+  - done 18 November 2026: IPv6 is on for the networks Caddy publishes from (`default` and each `<app>_edge`), so apps see IPv6 visitors' own addresses;
   - confirm the next NAS pull contains `db-kibble.dump`;
   - decide where private images live: Codefloe makes a public account's packages public, so Kibble's image is built on the host.
 - **Done when:** the app is served over HTTPS from a pinned image digest, with private database networking and a working health check.

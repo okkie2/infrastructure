@@ -58,7 +58,11 @@ volumes:
   postgres_data:
 
 networks:
+  # IPv6 is on for the networks Caddy publishes its ports from, so that it sees an IPv6
+  # visitor's own address. Without it Docker's proxy hands every IPv6 visitor to Caddy
+  # as the network's gateway address, and apps count them as one visitor.
   default:
+    enable_ipv6: true
   # Postgres shares no network with Caddy; this one only keeps it attached when no app exists.
   postgres_internal:
     internal: true
@@ -67,6 +71,7 @@ networks:
   {{ app.name }}_edge:
     name: {{ app.name }}_edge
     internal: false
+    enable_ipv6: true
   {{ app.name }}_db:
     name: {{ app.name }}_db
     internal: true

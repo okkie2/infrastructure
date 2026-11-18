@@ -4,6 +4,20 @@
 	email {{ caddy_acme_email }}
 {% endif %}
 	admin localhost:2019
+	# Caddy writes no access log. Its error log does describe the request that failed,
+	# for example while an app cannot be reached. A request address can hold a key to an
+	# account (an invitation link) or a search text, so the address and the headers
+	# (Referer repeats the address) are left out, and the visitor's address is shortened.
+	log {
+		format filter {
+			fields {
+				request>uri delete
+				request>headers delete
+				request>remote_ip ip_mask 16 32
+				request>client_ip ip_mask 16 32
+			}
+		}
+	}
 	# A client must send its request within these limits, so a slow sender cannot
 	# hold an app's request threads. Raise read_body before an app accepts large uploads.
 	servers {

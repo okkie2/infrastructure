@@ -26,12 +26,14 @@
     - "{{ platform_root }}/secrets"
     - "{{ apps_root }}"
 
+# The group is the app's container user: an app may mount this folder to read a secret
+# that is optional (a declared Compose secret must exist), and must be able to enter it.
 - name: Create per-app directories
   ansible.builtin.file:
     path: "{{ apps_root }}/{{ item.name }}/secrets"
     state: directory
     owner: root
-    group: root
+    group: "{{ item.uid | default(0) }}"
     mode: "0750"
   loop: "{{ platform_apps }}"
   loop_control: { label: "{{ item.name }}" }

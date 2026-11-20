@@ -6,16 +6,18 @@ creation_reason: unknown
 purpose: "Record the OK040 host configuration and operating procedures needed to rebuild and maintain its services."
 provenance:
   type: mixed
-  description: "Historical host details were captured read-only from OK040 on the dates stated in the document. The Hetzner backup account, scheduled pull, ACL and applied power schedule were added from the 15 November 2026 handover evidence."
+  description: "Historical host details were captured read-only from OK040 on the dates stated in the document. The Hetzner backup account, scheduled pull, ACL and applied power schedule were added from the 15 November 2026 handover evidence. The status-page schedule and command were verified live on OK040 on 2026-11-20."
   sources:
     - reference: "../../../HANDOVER-hetzner-backup.md"
       description: "15 November 2026 evidence for the Hetzner backup task, DSM account and ACL, and applied power schedule."
+    - reference: "Live OK040 Task Scheduler task 9 (2026-11-20)"
+      description: "Verified that status-page-refresh runs every five minutes from 00:30 through 23:55 as root, with PATH set so the collector can find Docker."
 ai:
   involvement: editing
-  description: "Codex added provenance metadata and incorporated the supplied operational handover details; earlier authorship and AI involvement are unknown."
-updated: "2026-11-15"
-updated_by: "Claude Code"
-update_reason: "Recorded the installed Hetzner backup pull and corrected the power schedule status."
+  description: "Codex added provenance metadata, incorporated the supplied operational handover details, and recorded the live status-page schedule; earlier authorship and AI involvement are unknown."
+updated: "2026-11-20"
+updated_by: "Codex"
+update_reason: "Recorded the verified five-minute status-page refresh schedule and Docker PATH."
 ---
 
 # host (DSM on OK040)
@@ -64,7 +66,7 @@ For the Hetzner pull, `hetznerbackup` has traverse/read-attributes on the `backu
 | Task | Owner | When | What |
 |---|---|---|---|
 | Hetzner backup pull | hetznerbackup | daily 07:30 | Runs `/usr/local/libexec/hetzner-backup/pull-hetzner-backup.py`; fetches and verifies Hetzner PostgreSQL dumps into `/volume1/backup/hetzner/`. See [hetzner-backup](../hetzner-backup/). |
-| status-page-refresh | root | daily from 00:30, repeating through the day (last run 18:30) | `python3 /volume1/docker/status-page/gather-status.py` writes `/volume1/web/status.json`. See [status-page](../status-page/). |
+| status-page-refresh | root | daily from 00:30, repeating every 5 minutes through 23:55 | `export PATH=/usr/local/bin:/usr/bin:/bin; python3 /volume1/docker/status-page/gather-status.py` writes `/volume1/web/status.json`. See [status-page](../status-page/). |
 | Volition Daily Copy | joost | daily 02:00 | Runs `/usr/bin/python3 /usr/local/libexec/volition/backup-notes.py`; copies `/volume1/homes/joost/Volition/notes` to `/volume1/homes/joost/Volition-backups/notes-<timestamp>` and keeps the newest 8. |
 | Media Docker (backup) and verify | root | Sundays 12:15 / 21:00 | Hyper Backup run and verify for the "Media Docker" repo. |
 | Timemachine Homes (backup) and verify | root | Sundays 00:15 / 09:00 | Hyper Backup run and verify for the "Timemachine Homes" repo. |
